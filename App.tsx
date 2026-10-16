@@ -1,16 +1,15 @@
 /**
- * Engine check screen: installs nothing itself, it receives the on-device
- * ephemeris directory from the native side, initializes the engine and shows
- * the current sky for Baghdad. Proves the full native path works on a phone.
+ * Root: initializes the engine with the ephemeris directory handed over by the
+ * native side, then switches between the home, birth form and chart screens.
  * AGPL-3.0-or-later.
  *
  * @format
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  BackHandler,
   I18nManager,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -18,57 +17,28 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { AstroEngine, BodyKey, ChartResult } from './src/astro/engine';
+import { AstroEngine } from './src/astro/engine';
+import { BirthData, BirthForm, describeConversion } from './src/ui/BirthForm';
+import { ChartInfo, ChartScreen } from './src/ui/ChartScreen';
+import { BODIES, colors, formatDateTime } from './src/ui/theme';
+import { Button, Header } from './src/ui/widgets';
+import { cityLabel } from './src/geo/cities';
 
-I18nManager.allowRTL(true);
-
-const colors = {
-  navy: '#0B1530',
-  navyRaised: '#14213F',
-  line: '#24335A',
-  text: '#E8ECF5',
-  muted: '#8E9AB8',
-  gold: '#C9A54C',
-  error: '#E07A6F',
-};
-
-const SIGNS = [
-  'الحمل',
-  'الثور',
-  'الجوزاء',
-  'السرطان',
-  'الأسد',
-  'العذراء',
-  'الميزان',
-  'العقرب',
-  'القوس',
-  'الجدي',
-  'الدلو',
-  'الحوت',
-];
-
-const BODIES: { key: BodyKey; name: string }[] = [
-  { key: 'sun', name: 'الشمس' },
-  { key: 'moon', name: 'القمر' },
-  { key: 'mercury', name: 'عطارد' },
-  { key: 'venus', name: 'الزهرة' },
-  { key: 'mars', name: 'المريخ' },
-  { key: 'jupiter', name: 'المشتري' },
-  { key: 'saturn', name: 'زحل' },
-  { key: 'uranus', name: 'أورانوس' },
-  { key: 'neptune', name: 'نبتون' },
-  { key: 'pluto', name: 'بلوتو' },
-  { key: 'trueNode', name: 'العقدة الشمالية' },
-  { key: 'chiron', name: 'كيرون' },
-];
+// Layout is written right-to-left explicitly; keep it identical whatever the
+// phone language is.
+I18nManager.allowRTL(false);
 
 type Props = { ephePath?: string; ephemerisError?: string };
+type Screen =
+  | { kind: 'home' }
+  | { kind: 'form' }
+  | { kind: 'chart'; info: ChartInfo };
 
-type CheckResult =
-  | { ok: true; version: string; chart: ChartResult; at: Date }
-  | { ok: false; message: string };
+const BAGHDAD = { lat: 33.3152, lon: 44.3661 };
 
-function runCheck(props: Props): CheckResult {
+function initEngine(
+  props: Props,
+): { ok: true; version: string } | { ok: false; message: string } {
   if (!props.ephePath) {
     return {
       ok: false,
@@ -76,153 +46,158 @@ function runCheck(props: Props): CheckResult {
     };
   }
   try {
-    const init = AstroEngine.initialize(props.ephePath);
-    const at = new Date();
-    const chart = AstroEngine.chart({
-      time: {
-        utc: {
-          year: at.getUTCFullYear(),
-          month: at.getUTCMonth() + 1,
-          day: at.getUTCDate(),
-          hour: at.getUTCHours(),
-          minute: at.getUTCMinutes(),
-          second: at.getUTCSeconds(),
-        },
-      },
-      location: { lat: 33.3152, lon: 44.3661 },
-      houseSystem: 'P',
-      bodies: BODIES.map(b => b.key),
-    });
-    return { ok: true, version: init.version, chart, at };
+    return {
+      ok: true,
+      version: AstroEngine.initialize(props.ephePath).version,
+    };
   } catch (e) {
     return { ok: false, message: String(e) };
   }
 }
 
-function formatDegree(degree: number): string {
-  const d = Math.floor(degree);
-  const m = Math.floor((degree - d) * 60);
-  return `${d}° ${String(m).padStart(2, '0')}′`;
+function birthChart(data: BirthData): ChartInfo {
+  const { city, conversion: c } = data;
+  const chart = AstroEngine.chart({
+    time: { utc: c.utc },
+    location: { lat: city.lat, lon: city.lon },
+    houseSystem: 'P',
+    bodies: BODIES.map(b => b.key),
+  });
+  return {
+    title: data.name || 'خريطة الولادة',
+    lines: [
+      `${cityLabel(city)} · ${city.countryName}`,
+      `بالتوقيت المحلي: ${formatDateTime(data.local)}`,
+      `بالتوقيت العالمي: ${formatDateTime(c.utc)}`,
+    ],
+    notes: describeConversion(c).slice(1).concat(chart.warnings),
+    chart,
+  };
+}
+
+function skyNow(): ChartInfo {
+  const at = new Date();
+  const utc = {
+    year: at.getUTCFullYear(),
+    month: at.getUTCMonth() + 1,
+    day: at.getUTCDate(),
+    hour: at.getUTCHours(),
+    minute: at.getUTCMinutes(),
+    second: at.getUTCSeconds(),
+  };
+  const chart = AstroEngine.chart({
+    time: { utc },
+    location: BAGHDAD,
+    houseSystem: 'P',
+    bodies: BODIES.map(b => b.key),
+  });
+  return {
+    title: 'السماء الآن',
+    lines: ['فوق بغداد', `بالتوقيت العالمي: ${formatDateTime(utc)}`],
+    notes: chart.warnings,
+    chart,
+  };
 }
 
 function App(props: Props) {
-  const result = useMemo(() => runCheck(props), [props]);
+  const engine = useMemo(() => initEngine(props), [props]);
+  const [screen, setScreen] = useState<Screen>({ kind: 'home' });
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen.kind === 'home') {
+        return false;
+      }
+      setScreen({ kind: 'home' });
+      return true;
+    });
+    return () => sub.remove();
+  }, [screen]);
+
+  const show = (make: () => ChartInfo) => {
+    try {
+      setError(null);
+      setScreen({ kind: 'chart', info: make() });
+    } catch (e) {
+      setError(String(e));
+      setScreen({ kind: 'home' });
+    }
+  };
+  const home = () => setScreen({ kind: 'home' });
+
+  let body;
+  if (!engine.ok) {
+    body = (
+      <View style={styles.content}>
+        <Header title="فلك" />
+        <Text style={styles.errorTitle}>المحرّك لم يعمل</Text>
+        <Text style={styles.text}>{engine.message}</Text>
+      </View>
+    );
+  } else if (screen.kind === 'form') {
+    body = (
+      <BirthForm
+        onBack={home}
+        onSubmit={data => show(() => birthChart(data))}
+      />
+    );
+  } else if (screen.kind === 'chart') {
+    body = <ChartScreen info={screen.info} onBack={home} />;
+  } else {
+    body = (
+      <View style={styles.content}>
+        <Header title="فلك" />
+        <Text style={styles.text}>
+          حسابات فلكية دقيقة تعمل على هاتفك بلا إنترنت.
+        </Text>
+        <View style={styles.actions}>
+          <Button
+            label="خريطة جديدة"
+            onPress={() => setScreen({ kind: 'form' })}
+          />
+          <Button
+            label="السماء الآن"
+            kind="secondary"
+            onPress={() => show(skyNow)}
+          />
+        </View>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <Text style={styles.footer}>المكتبة السويسرية {engine.version}</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" />
-      <SafeAreaView style={styles.screen}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>فحص المحرّك</Text>
-          {result.ok ? (
-            <ChartView result={result} />
-          ) : (
-            <ErrorView message={result.message} />
-          )}
-        </ScrollView>
-      </SafeAreaView>
+      <SafeAreaView style={styles.screen}>{body}</SafeAreaView>
     </SafeAreaProvider>
-  );
-}
-
-function ChartView({ result }: { result: Extract<CheckResult, { ok: true }> }) {
-  const names = new Map(BODIES.map(b => [b.key, b.name]));
-  const houses = result.chart.houses;
-  return (
-    <>
-      <Text style={styles.subtitle}>
-        السماء الآن فوق بغداد ·{' '}
-        {result.at.toISOString().slice(0, 16).replace('T', ' ')} بالتوقيت
-        العالمي
-      </Text>
-      <View style={styles.card}>
-        {result.chart.bodies.map(b => (
-          <View key={b.key} style={styles.row}>
-            <Text style={styles.bodyName}>{names.get(b.key) ?? b.key}</Text>
-            <Text style={styles.position}>
-              {formatDegree(b.sign.degree)} {SIGNS[b.sign.index]}
-              {b.retrograde ? <Text style={styles.retro}> متراجع</Text> : null}
-            </Text>
-          </View>
-        ))}
-      </View>
-      {houses ? (
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.bodyName}>الطالع</Text>
-            <Text style={styles.position}>
-              {formatDegree(houses.asc % 30)}{' '}
-              {SIGNS[Math.floor(houses.asc / 30)]}
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.bodyName}>وسط السماء</Text>
-            <Text style={styles.position}>
-              {formatDegree(houses.mc % 30)} {SIGNS[Math.floor(houses.mc / 30)]}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-      <Text style={styles.footer}>المكتبة السويسرية {result.version}</Text>
-      {result.chart.warnings.map(w => (
-        <Text key={w} style={styles.footer}>
-          {w}
-        </Text>
-      ))}
-    </>
-  );
-}
-
-function ErrorView({ message }: { message: string }) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.errorTitle}>المحرّك لم يعمل</Text>
-      <Text style={styles.errorText}>{message}</Text>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.navy },
-  content: { padding: 20, gap: 16 },
-  title: {
-    color: colors.gold,
-    fontSize: 26,
-    fontWeight: '600',
+  content: { padding: 20, gap: 16, flex: 1 },
+  actions: { gap: 12, marginTop: 12 },
+  text: {
+    color: colors.text,
+    fontSize: 15,
     textAlign: 'right',
+    lineHeight: 24,
   },
-  subtitle: { color: colors.muted, fontSize: 14, textAlign: 'right' },
-  card: {
-    backgroundColor: colors.navyRaised,
-    borderColor: colors.line,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  row: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomColor: colors.line,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  bodyName: { color: colors.text, fontSize: 16 },
-  position: { color: colors.text, fontSize: 16, fontVariant: ['tabular-nums'] },
-  retro: { color: colors.gold, fontSize: 13 },
-  footer: { color: colors.muted, fontSize: 12, textAlign: 'center' },
   errorTitle: {
     color: colors.error,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'right',
-    paddingTop: 10,
   },
-  errorText: {
-    color: colors.text,
-    fontSize: 14,
-    textAlign: 'right',
-    paddingVertical: 10,
+  error: { color: colors.error, fontSize: 14, textAlign: 'right' },
+  footer: {
+    color: colors.muted,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 'auto',
   },
 });
 
