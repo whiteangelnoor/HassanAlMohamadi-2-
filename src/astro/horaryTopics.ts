@@ -2,6 +2,8 @@
 // later books. Each matter is judged by the lord of its house.
 // AGPL-3.0-or-later.
 
+import type { MatterKind } from './horaryReading';
+
 export interface HouseMatters {
   house: number;
   title: string;
@@ -159,3 +161,17 @@ export const HOUSE_MATTERS: HouseMatters[] = [
     ],
   },
 ];
+
+/** Matters with a chapter of their own. */
+export const MATTER_KIND: Record<string, MatterKind> = {
+  'شيء ضائع أو مفقود': 'lost',
+  'السارق والمسروق': 'theft',
+  'المرض وعاقبته': 'sick',
+  'هل يعود المسافر': 'return',
+  'هل يعود الزوج أو الحبيب': 'return',
+  الحمل: 'pregnancy',
+  'هل حامل أم لا': 'pregnancy',
+};
+
+/** Houses whose matters are mostly people, to be described. */
+export const PERSON_HOUSES = [3, 4, 5, 7, 10, 11, 12];

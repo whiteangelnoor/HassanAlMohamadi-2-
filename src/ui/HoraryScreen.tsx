@@ -18,7 +18,12 @@ import {
   judge,
   PlanetState,
 } from '../astro/horary';
-import { HOUSE_MATTERS } from '../astro/horaryTopics';
+import { horaryReading } from '../astro/horaryReading';
+import {
+  HOUSE_MATTERS,
+  MATTER_KIND,
+  PERSON_HOUSES,
+} from '../astro/horaryTopics';
 import { DignityKind } from '../astro/traditional';
 import { SavedPlace } from '../store';
 import { ChartWheel } from './ChartWheel';
@@ -249,7 +254,33 @@ export function HoraryScreen({
             </Card>
           ) : null}
 
-          <Section title="الدلائل" />
+          {horaryReading(
+            result,
+            matter && matter !== 'intention'
+              ? MATTER_KIND[matter.label]
+              : undefined,
+            PERSON_HOUSES.includes(result.house),
+            { planet: p => POINT_NAMES[p], aspect: k => ASPECT_ADVERB[k] },
+          ).map(sec => (
+            <View key={sec.title} style={styles.group}>
+              <Section title={sec.title} />
+              <Card>
+                {sec.lines.map((l, i) => (
+                  <Text
+                    key={i}
+                    style={[
+                      styles.readingLine,
+                      i === sec.lines.length - 1 && styles.lastRow,
+                    ]}
+                  >
+                    {l}
+                  </Text>
+                ))}
+              </Card>
+            </View>
+          ))}
+
+          <Section title="الدلائل وأوزانها" />
           <Card>
             {result.testimonies.map((x, i) => (
               <View
@@ -451,6 +482,17 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   wheel: { alignItems: 'center' },
+  group: { gap: 8 },
+  readingLine: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 14.5,
+    lineHeight: 24,
+    textAlign: 'right',
+    paddingVertical: 9,
+    borderBottomColor: colors.line,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   error: {
     fontFamily: FONT,
     color: colors.error,

@@ -533,4 +533,36 @@ run('horary judgment', () => {
     const by = r.chart.bodies.find((b: any) => b.key === r.intention.by);
     expect(r.house).toBe(Math.floor(by.housePosition));
   });
+
+  test('full readings: every chapter, no gaps, consistent with the chart', () => {
+    const { horaryReading } = require('../src/astro/horaryReading');
+    const kinds = ['lost', 'theft', 'sick', 'return', 'pregnancy', undefined];
+    const houses = [2, 7, 6, 9, 5, 10];
+    for (const [i, jd] of moments.slice(0, 6).entries()) {
+      const r = judge(jd, place, houses[i], names);
+      const sections = horaryReading(r, kinds[i], true, {
+        planet: (p: string) => p,
+        aspect: (k: string) => k,
+      });
+      const text = JSON.stringify(sections);
+      expect(text).not.toMatch(/undefined|NaN|null/);
+      for (const sec of sections) {
+        expect(sec.lines.length).toBeGreaterThan(0);
+      }
+      const titles = sections.map((x: any) => x.title);
+      expect(titles).toContain('حال السائل');
+      expect(titles).toContain('المكان والجهة');
+      if (kinds[i]) {
+        expect(sections.length).toBeGreaterThanOrEqual(8);
+      }
+      for (const x of r.aspectsNow) {
+        const d = at(jd, x.a) - at(jd, x.b);
+        const t = TARGET[x.kind];
+        const off = Math.min(
+          ...t.map(g => Math.abs(((d - g + 540) % 360) - 180)),
+        );
+        expect(Math.abs(off - x.orb)).toBeLessThan(0.01);
+      }
+    }
+  });
 });

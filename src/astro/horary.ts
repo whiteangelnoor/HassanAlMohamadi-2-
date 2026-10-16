@@ -11,6 +11,7 @@ import { AstroEngine, ChartResult } from './engine';
 import { crossings, ingresses, lonAt, Track, tracks } from './events';
 import { planetaryDay } from './planetaryHours';
 import {
+  computeLots,
   DignityKind,
   isDayChart,
   Planet,
@@ -49,6 +50,14 @@ const norm = (x: number) => ((x % 360) + 360) % 360;
 const wrap = (x: number) => norm(x + 180) - 180;
 
 export const HORARY_HOUSE_SYSTEM = 'R';
+
+const YES_SUMMARY: Record<HoraryAspect, string> = {
+  conjunction: 'يتم الأمر، والاتصال بالمقارنة وهي أقوى الاتصالات.',
+  trine: 'يتم الأمر بسهولة.',
+  sextile: 'يتم الأمر بيسر.',
+  square: 'يتم الأمر بعد تعب وعسر.',
+  opposition: 'يتم الأمر لكن مع خصام أو ندم بعده.',
+};
 
 export interface Join {
   a: Planet;
@@ -95,6 +104,59 @@ export interface HoraryJudgment {
   moonLast: Join | null;
   hourLord: Planet | null;
   timing: string | null;
+  /** Every planet's state, the lords of the twelve houses. */
+  states: Record<Planet, PlanetState>;
+  lords: Planet[];
+  /** Aspects within the moiety of orbs at the question. */
+  aspectsNow: NowAspect[];
+  prohibition: Join | null;
+  /** Reception between the significators. */
+  reception: 'mutual' | 'matterReceives' | 'querentReceives' | null;
+  translation: Planet | null;
+  collection: Planet | null;
+  fortune: { lon: number; house: number };
+}
+
+export interface NowAspect {
+  a: Planet;
+  b: Planet;
+  kind: HoraryAspect;
+  orb: number;
+  applying: boolean;
+}
+
+/** Aspects within the planets' moieties, applying when the gap is closing. */
+export function aspectsInOrb(chart: ChartResult): NowAspect[] {
+  const out: NowAspect[] = [];
+  const pos = PLANETS.map(p => chart.bodies.find(b => b.key === p)!);
+  for (let i = 0; i < pos.length; i++) {
+    for (let k = i + 1; k < pos.length; k++) {
+      const a = pos[i];
+      const b = pos[k];
+      const moiety = (ORB[a.key as Planet] + ORB[b.key as Planet]) / 2;
+      for (const { kind, targets } of ASPECTS) {
+        for (const g of targets) {
+          const gap = (x: number, y: number) => Math.abs(wrap(x - y - g));
+          const now = gap(a.lon, b.lon);
+          if (now > moiety) {
+            continue;
+          }
+          const later = gap(
+            a.lon + a.lonSpeed * 0.01,
+            b.lon + b.lonSpeed * 0.01,
+          );
+          out.push({
+            a: a.key as Planet,
+            b: b.key as Planet,
+            kind,
+            orb: now,
+            applying: later < now,
+          });
+        }
+      }
+    }
+  }
+  return out.sort((x, y) => x.orb - y.orb);
 }
 
 // ---------- motion ----------------------------------------------------------------
@@ -539,7 +601,7 @@ export function judge(
     outcome = moonVoid ? 'doubt' : 'yes';
     summary =
       outcome === 'yes'
-        ? `يتم الأمر ${MANNER[perfection.kind].replace(/^[^،]*،\s*/, '')}.`
+        ? YES_SUMMARY[perfection.kind]
         : 'الاتصال قائم لكن القمر خالي السير: يُرجى الأمر ولا يُجزم به.';
     if (perfection.kind === 'opposition') {
       summary = 'يتم الأمر لكن مع خصام أو ندم بعده.';
@@ -606,7 +668,39 @@ export function judge(
     moonLast,
     hourLord,
     timing,
+    states: Object.fromEntries(
+      PLANETS.map(p => [p, state(chart, p, day)]),
+    ) as Record<Planet, PlanetState>,
+    lords: Array.from({ length: 12 }, (_, i) => lordOf(i + 1)),
+    aspectsNow: aspectsInOrb(chart),
+    prohibition,
+    reception:
+      BreceivesA && AreceivesB
+        ? 'mutual'
+        : BreceivesA
+        ? 'matterReceives'
+        : AreceivesB
+        ? 'querentReceives'
+        : null,
+    translation,
+    collection,
+    fortune: fortuneOf(chart),
   };
+}
+
+function fortuneOf(chart: ChartResult): { lon: number; house: number } {
+  const lon = computeLots(chart).find(l => l.key === 'fortune')!.lon;
+  const cusps = chart.houses!.cusps;
+  let house = 12;
+  for (let h = 0; h < 12; h++) {
+    const a = cusps[h];
+    const b = cusps[(h + 1) % 12];
+    if (norm(lon - a) < norm(b - a)) {
+      house = h + 1;
+      break;
+    }
+  }
+  return { lon, house };
 }
 
 /**
