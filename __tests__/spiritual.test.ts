@@ -4,6 +4,7 @@ import { CHALDEAN, DAY_RULERS } from '../src/astro/planetaryHours';
 import {
   abjadLetters,
   abjadValue,
+  cosmicNumber,
   nameNature,
   natureLabel,
   spiritualSign,
@@ -67,4 +68,12 @@ test('planetary day rulers follow the Chaldean order', () => {
     const first = CHALDEAN.indexOf(DAY_RULERS[w]);
     expect(CHALDEAN[(first + 24) % 7]).toBe(DAY_RULERS[(w + 1) % 7]);
   }
+});
+
+test('cosmic number: حسن is 118, 1+1+8 = 10, 1+0 = 1', () => {
+  expect(abjadValue('حسن', m)).toBe(118);
+  expect(cosmicNumber(118)).toBe(1);
+  expect(cosmicNumber(9)).toBe(9);
+  expect(cosmicNumber(99)).toBe(9);
+  expect(cosmicNumber(0)).toBe(0);
 });

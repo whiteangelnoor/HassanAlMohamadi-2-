@@ -9,7 +9,7 @@ import { rulersAt } from '../astro/traditional';
 import {
   AbjadOptions,
   AbjadSystem,
-  abjadLetters,
+  cosmicNumber,
   ELEMENT_NAMES,
   ELEMENTS,
   nameNature,
@@ -31,10 +31,6 @@ export function SpiritualSignScreen({ onBack }: { onBack: () => void }) {
   const ready = name.trim() !== '' && mother.trim() !== '';
   const r = ready ? spiritualSign(name, mother, o) : null;
   const bad = [...unknownLetters(name), ...unknownLetters(mother)];
-  const values = (s: string) =>
-    abjadLetters(s, o)
-      .map(l => `${l.letter} ${l.value}`)
-      .join(' + ');
   const systemName = system === 'mashriqi' ? 'المشرقي' : 'المغربي';
 
   return (
@@ -104,34 +100,29 @@ export function SpiritualSignScreen({ onBack }: { onBack: () => void }) {
             <Row
               name="طبع اسم الأم"
               value={natureLabel(nameNature(mother, o))}
+            />
+            <Row name="مجموع الاسم" value={String(r.nameValue)} />
+            <Row name="مجموع اسم الأم" value={String(r.motherValue)} />
+            <Row
+              name="مجموع الاسم والأم"
+              value={<Text style={styles.big}>{String(r.total)}</Text>}
               last
             />
           </Card>
 
-          <NatureCard title={`طبع «${name.trim()}»`} name={name} o={o} />
-          <NatureCard title={`طبع «${mother.trim()}»`} name={mother} o={o} />
-
-          <Section title="خطوات حساب البرج" />
+          <Section title="الحساب الكوني" />
           <Card>
             <Row
-              name={`قيمة «${name.trim()}»`}
-              value={String(r.nameValue)}
-              detail={values(name)}
+              name="الحساب الكوني للاسم"
+              value={<Text style={styles.big}>{cosmic(r.nameValue)}</Text>}
             />
             <Row
-              name={`قيمة «${mother.trim()}»`}
-              value={String(r.motherValue)}
-              detail={values(mother)}
+              name="الحساب الكوني للأم"
+              value={<Text style={styles.big}>{cosmic(r.motherValue)}</Text>}
             />
-            <Row name="المجموع" value={String(r.total)} />
             <Row
-              name="الباقي بعد طرح 12 مراراً"
-              value={String(r.remainder)}
-              detail={
-                r.remainder === 0
-                  ? 'الباقي صفر يعني البرج الثاني عشر، الحوت.'
-                  : `يُعدّ من الحمل: ${r.remainder} = ${SIGNS[r.sign]}`
-              }
+              name="الحساب الكوني للمجموع"
+              value={<Text style={styles.big}>{cosmic(r.total)}</Text>}
               last
             />
           </Card>
@@ -139,54 +130,11 @@ export function SpiritualSignScreen({ onBack }: { onBack: () => void }) {
       ) : (
         <Hint>اكتب الاسم واسم الأم بالعربية.</Hint>
       )}
-
-      <Hint>
-        المشرقي: أبجد هوز حطي كلمن سعفص قرشت ثخذ ضظغ. المغربي: أبجد هوز حطي كلمن
-        صعفض قرست ثخذ ظغش. طبع الاسم: تُوزَّع الحروف على ترتيب الأبجد أربعةً
-        أربعة على النار والتراب والهواء والماء، قوة الأربعة الأولى 7 ثم 6 حتى 1،
-        وتُجمع قوى حروف الاسم لكل عنصر فالأكبر هو الطبع، وإن تساوى الأكبر فالطبع
-        ممتزج. في الحساب المغربي يتبع التوزيع ترتيب الأبجد المغربي. تُهمل
-        الحركات والمسافات، والهمزة تُحسب ألفاً.
-      </Hint>
     </ScrollView>
   );
 }
 
-function NatureCard({
-  title,
-  name,
-  o,
-}: {
-  title: string;
-  name: string;
-  o: AbjadOptions;
-}) {
-  const n = nameNature(name, o);
-  return (
-    <>
-      <Section title={`${title}: ${natureLabel(n)}`} />
-      <Card>
-        {ELEMENTS.map((e, i) => {
-          const ls = n.letters.filter(l => l.element === e);
-          return (
-            <Row
-              key={e}
-              name={ELEMENT_NAMES[e]}
-              value={String(n.totals[e])}
-              highlight={n.winners.includes(e)}
-              detail={
-                ls.length
-                  ? ls.map(l => `${l.letter} ${l.strength}`).join(' + ')
-                  : 'لا حروف'
-              }
-              last={i === ELEMENTS.length - 1}
-            />
-          );
-        })}
-      </Card>
-    </>
-  );
-}
+const cosmic = (n: number) => String(cosmicNumber(n));
 
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 14, paddingBottom: 40 },

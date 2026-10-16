@@ -154,3 +154,11 @@ export function spiritualSign(
     sign: (remainder + 11) % 12,
   };
 }
+
+/** The cosmic number: digits added repeatedly down to one digit (118 → 10 → 1). */
+export function cosmicNumber(n: number): number {
+  while (n > 9) {
+    n = [...String(n)].reduce((s, d) => s + Number(d), 0);
+  }
+  return n;
+}
