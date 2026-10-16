@@ -2,6 +2,7 @@
 
 import { ReactNode, useMemo, useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,7 @@ import {
 } from './theme';
 import { Button, Header } from './widgets';
 import { ChartWheel } from './ChartWheel';
+import { HOUSE_SYSTEMS, houseSystemName } from './houseSystems';
 
 export interface ChartInfo {
   title: string;
@@ -48,12 +50,17 @@ const TABS: { key: Tab; label: string }[] = [
 
 export function ChartScreen({
   info,
+  houseSystem,
+  onHouseSystem,
   onBack,
 }: {
   info: ChartInfo;
+  houseSystem: string;
+  onHouseSystem: (code: string) => void;
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('planets');
+  const [picking, setPicking] = useState(false);
   const { chart } = info;
   const day = chart.houses ? isDayChart(chart) : null;
 
@@ -77,6 +84,28 @@ export function ChartScreen({
       ))}
 
       <Wheel chart={chart} />
+
+      <Pressable
+        onPress={() => setPicking(true)}
+        style={({ pressed }) => [styles.selector, pressed && styles.pressed]}
+        accessibilityRole="button"
+      >
+        <Text style={styles.selectorLabel}>نظام البيوت</Text>
+        <Text style={styles.selectorValue}>
+          {`${houseSystemName(houseSystem)}  ⌄`}
+        </Text>
+      </Pressable>
+      <HouseSystemPicker
+        visible={picking}
+        current={houseSystem}
+        onClose={() => setPicking(false)}
+        onPick={code => {
+          setPicking(false);
+          if (code !== houseSystem) {
+            onHouseSystem(code);
+          }
+        }}
+      />
 
       <View style={styles.tabs}>
         {TABS.map(t => (
@@ -149,6 +178,54 @@ function Wheel({ chart }: { chart: ChartResult }) {
   );
 }
 
+function HouseSystemPicker({
+  visible,
+  current,
+  onClose,
+  onPick,
+}: {
+  visible: boolean;
+  current: string;
+  onClose: () => void;
+  onPick: (code: string) => void;
+}) {
+  const common = HOUSE_SYSTEMS.filter(h => h.common);
+  const others = HOUSE_SYSTEMS.filter(h => !h.common);
+  const item = (h: { code: string; name: string }) => (
+    <Pressable
+      key={h.code}
+      onPress={() => onPick(h.code)}
+      style={({ pressed }) => [styles.option, pressed && styles.pressed]}
+    >
+      <Text
+        style={[styles.optionText, h.code === current && styles.optionActive]}
+      >
+        {h.name}
+      </Text>
+      {h.code === current ? <Text style={styles.optionActive}>✓</Text> : null}
+    </Pressable>
+  );
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
+          <Text style={styles.sheetTitle}>نظام البيوت</Text>
+          <ScrollView>
+            {common.map(item)}
+            <Text style={styles.section}>أنظمة أخرى</Text>
+            {others.map(item)}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function Planets({ chart }: { chart: ChartResult }) {
   const houses = chart.houses;
   return (
@@ -175,7 +252,7 @@ function Planets({ chart }: { chart: ChartResult }) {
             <Row name="الطالع" value={formatLongitude(houses.asc)} />
             <Row name="وسط السماء" value={formatLongitude(houses.mc)} last />
           </Card>
-          <Section title={`رؤوس البيوت · ${houses.systemName}`} />
+          <Section title="رؤوس البيوت" />
           <Card>
             {houses.cusps.slice(0, 12).map((c, i) => (
               <Row
@@ -292,6 +369,51 @@ function Dignities({ chart }: { chart: ChartResult }) {
 }
 
 const styles = StyleSheet.create({
+  selector: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.navyRaised,
+    borderColor: colors.line,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  selectorLabel: { color: colors.muted, fontSize: 14 },
+  selectorValue: { color: colors.gold, fontSize: 16, fontWeight: '600' },
+  pressed: { opacity: 0.6 },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 10, 25, 0.7)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  sheet: {
+    backgroundColor: colors.navyRaised,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    maxHeight: '80%',
+  },
+  sheetTitle: {
+    color: colors.gold,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'right',
+    marginBottom: 6,
+  },
+  option: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomColor: colors.line,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  optionText: { color: colors.text, fontSize: 16, textAlign: 'right' },
+  optionActive: { color: colors.gold, fontSize: 16, fontWeight: '600' },
   wheel: { alignItems: 'center' },
   content: { padding: 20, gap: 14, paddingBottom: 40 },
   subtitle: { color: colors.muted, fontSize: 14, textAlign: 'right' },

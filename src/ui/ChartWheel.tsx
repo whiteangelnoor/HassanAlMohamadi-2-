@@ -197,8 +197,7 @@ export function ChartWheel({
       {/* houses */}
       {houses
         ? houses.cusps.slice(0, 12).map((cusp, i) => {
-            const angle = i === 0 || i === 9;
-            const from = pt(cusp, angle ? rSignOuter : rSignInner);
+            const from = pt(cusp, rSignInner);
             const to = pt(cusp, rInner);
             const next = houses.cusps[(i + 1) % 12];
             const mid = cusp + norm(next - cusp) / 2;
@@ -211,8 +210,8 @@ export function ChartWheel({
                   y1={from.y}
                   x2={to.x}
                   y2={to.y}
-                  stroke={angle ? colors.gold : colors.line}
-                  strokeWidth={angle ? 1.6 : 0.8}
+                  stroke={colors.line}
+                  strokeWidth={0.8}
                 />
                 <SvgText
                   x={n.x}
@@ -224,6 +223,26 @@ export function ChartWheel({
                   {String(i + 1)}
                 </SvgText>
               </G>
+            );
+          })
+        : null}
+
+      {/* Ascendant and Midheaven, drawn on their own: in whole-sign and
+          other systems they are not house cusps */}
+      {houses
+        ? [houses.asc, houses.mc].map((lon, i) => {
+            const a = pt(lon, rSignOuter);
+            const b = pt(lon, rInner);
+            return (
+              <Line
+                key={`angle${i}`}
+                x1={a.x}
+                y1={a.y}
+                x2={b.x}
+                y2={b.y}
+                stroke={colors.gold}
+                strokeWidth={1.6}
+              />
             );
           })
         : null}

@@ -39,7 +39,10 @@ type Props = {
 type Screen =
   | { kind: 'home' }
   | { kind: 'form' }
-  | { kind: 'chart'; info: ChartInfo };
+  | { kind: 'chart'; make: ChartMaker; info: ChartInfo };
+
+/** Builds a chart for a house system, so the system can be switched live. */
+type ChartMaker = (houseSystem: string) => ChartInfo;
 
 const BAGHDAD = { lat: 33.3152, lon: 44.3661 };
 
@@ -62,12 +65,12 @@ function initEngine(
   }
 }
 
-function birthChart(data: BirthData): ChartInfo {
+function birthChart(data: BirthData, houseSystem: string): ChartInfo {
   const { city, conversion: c } = data;
   const chart = AstroEngine.chart({
     time: { utc: c.utc },
     location: { lat: city.lat, lon: city.lon },
-    houseSystem: 'P',
+    houseSystem,
     bodies: BODIES.map(b => b.key),
   });
   return {
@@ -82,8 +85,7 @@ function birthChart(data: BirthData): ChartInfo {
   };
 }
 
-function skyNow(): ChartInfo {
-  const at = new Date();
+function skyNow(at: Date, houseSystem: string): ChartInfo {
   const utc = {
     year: at.getUTCFullYear(),
     month: at.getUTCMonth() + 1,
@@ -95,7 +97,7 @@ function skyNow(): ChartInfo {
   const chart = AstroEngine.chart({
     time: { utc },
     location: BAGHDAD,
-    houseSystem: 'P',
+    houseSystem,
     bodies: BODIES.map(b => b.key),
   });
   return {
@@ -110,6 +112,8 @@ function App(props: Props) {
   const engine = useMemo(() => initEngine(props), [props]);
   const [screen, setScreen] = useState<Screen>({ kind: 'home' });
   const [error, setError] = useState<string | null>(null);
+  // Kept for the whole session and used for every new chart.
+  const [houseSystem, setHouseSystem] = useState('P');
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -122,10 +126,10 @@ function App(props: Props) {
     return () => sub.remove();
   }, [screen]);
 
-  const show = (make: () => ChartInfo) => {
+  const show = (make: ChartMaker, system = houseSystem) => {
     try {
       setError(null);
-      setScreen({ kind: 'chart', info: make() });
+      setScreen({ kind: 'chart', make, info: make(system) });
     } catch (e) {
       setError(String(e));
       setScreen({ kind: 'home' });
@@ -146,11 +150,22 @@ function App(props: Props) {
     body = (
       <BirthForm
         onBack={home}
-        onSubmit={data => show(() => birthChart(data))}
+        onSubmit={data => show(hs => birthChart(data, hs))}
       />
     );
   } else if (screen.kind === 'chart') {
-    body = <ChartScreen info={screen.info} onBack={home} />;
+    const { make } = screen;
+    body = (
+      <ChartScreen
+        info={screen.info}
+        houseSystem={houseSystem}
+        onHouseSystem={code => {
+          setHouseSystem(code);
+          show(make, code);
+        }}
+        onBack={home}
+      />
+    );
   } else {
     body = (
       <View style={styles.content}>
@@ -163,7 +178,10 @@ function App(props: Props) {
           <Button
             label="السماء الآن"
             kind="secondary"
-            onPress={() => show(skyNow)}
+            onPress={() => {
+              const at = new Date();
+              show(hs => skyNow(at, hs));
+            }}
           />
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -15,12 +15,15 @@ test('every tab renders for a real chart', async () => {
     tree = ReactTestRenderer.create(
       <ChartScreen
         info={{ title: 'تجربة', lines: [], notes: [], chart }}
+        houseSystem="B"
+        onHouseSystem={() => {}}
         onBack={() => {}}
       />,
     );
   });
   const text = () => JSON.stringify(tree!.toJSON());
   expect(text()).toContain('خريطة نهارية');
+  expect(text()).toContain('القبيصي');
 
   const tabs = tree!.root.findAll(
     n =>
