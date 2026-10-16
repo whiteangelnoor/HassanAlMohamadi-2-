@@ -2,9 +2,10 @@
 // engine chart. Pure functions, no native code. AGPL-3.0-or-later.
 //
 // Conventions (documented so results can be checked against any textbook):
-// - Aspects: the five Ptolemaic aspects; orb 8° for conjunction and
-//   opposition, 7° for trine and square, 5° for sextile; 2° more when the Sun
-//   or Moon is involved.
+// - Aspects: the five Ptolemaic aspects (and four minor ones if enabled);
+//   default orbs 8° conjunction and opposition, 7° trine and square, 5°
+//   sextile, adjustable in the settings; 2° more when the Sun or Moon is
+//   involved.
 // - Sect: day chart when the Sun is above the horizon, whatever the house
 //   system.
 // - Lots: Hermetic lots of Paulus Alexandrinus plus father and mother, each
@@ -49,19 +50,46 @@ export function isDayChart(chart: ChartResult): boolean {
 // ---------- aspects ----------------------------------------------------------
 
 export type AspectKind =
+  | 'semisextile'
+  | 'semisquare'
+  | 'quincunx'
+  | 'sesquiquadrate'
   | 'conjunction'
   | 'sextile'
   | 'square'
   | 'trine'
   | 'opposition';
 
-const ASPECTS: { kind: AspectKind; angle: number; orb: number }[] = [
-  { kind: 'conjunction', angle: 0, orb: 8 },
-  { kind: 'sextile', angle: 60, orb: 5 },
-  { kind: 'square', angle: 90, orb: 7 },
-  { kind: 'trine', angle: 120, orb: 7 },
-  { kind: 'opposition', angle: 180, orb: 8 },
+const MAJOR: { kind: AspectKind; angle: number }[] = [
+  { kind: 'conjunction', angle: 0 },
+  { kind: 'sextile', angle: 60 },
+  { kind: 'square', angle: 90 },
+  { kind: 'trine', angle: 120 },
+  { kind: 'opposition', angle: 180 },
 ];
+const MINOR: { kind: AspectKind; angle: number }[] = [
+  { kind: 'semisextile', angle: 30 },
+  { kind: 'semisquare', angle: 45 },
+  { kind: 'sesquiquadrate', angle: 135 },
+  { kind: 'quincunx', angle: 150 },
+];
+
+/** Orbs and minor aspects, from the user's settings. */
+export interface AspectSettings {
+  orbs: Record<string, number>;
+  minor: boolean;
+}
+let aspectSettings: AspectSettings = {
+  orbs: { conjunction: 8, opposition: 8, trine: 7, square: 7, sextile: 5 },
+  minor: false,
+};
+export function setAspectSettings(s: AspectSettings) {
+  aspectSettings = s;
+}
+function activeAspects() {
+  const list = aspectSettings.minor ? [...MAJOR, ...MINOR] : MAJOR;
+  return list.map(a => ({ ...a, orb: aspectSettings.orbs[a.kind] ?? 0 }));
+}
 const LUMINARY_BONUS = 2;
 
 export interface AspectPoint {
@@ -108,7 +136,7 @@ export function findAspects(points: AspectPoint[]): Aspect[] {
       }
       const sep = separation(p.lon, q.lon);
       const luminary = [p.key, q.key].some(k => k === 'sun' || k === 'moon');
-      for (const asp of ASPECTS) {
+      for (const asp of activeAspects()) {
         const orb = Math.abs(sep - asp.angle);
         if (orb <= asp.orb + (luminary ? LUMINARY_BONUS : 0)) {
           let applying: boolean | null = null;

@@ -2,7 +2,7 @@
 // chart. AGPL-3.0-or-later.
 
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AstroEngine, BodyKey, ChartResult } from '../astro/engine';
 import { dateFromJd, jdFromDate, returnTime } from '../astro/events';
@@ -14,20 +14,23 @@ import {
   TROPICAL_YEAR,
 } from '../astro/predictive';
 import { isDayChart } from '../astro/traditional';
+import { City, cityLabel, searchCities } from '../geo/cities';
+import { Settings } from '../store';
 import { ChartInfo } from './ChartScreen';
 import { formatDay, formatJd } from './dates';
-import { Card, Hint, Row, Section, Stepper } from './list';
+import { Card, Hint, Row, Section, Stepper, Toggle } from './list';
 import {
   ASPECT_NAMES,
-  BODIES,
+  chartBodies,
   colors,
+  FONT,
   formatDateTime,
   formatDegree,
   formatLongitude,
   POINT_NAMES,
   SIGNS,
 } from './theme';
-import { Button, Header } from './widgets';
+import { Button, Field, Header } from './widgets';
 
 export interface Natal {
   chart: ChartResult; // with houses
@@ -51,18 +54,21 @@ const FIRDAR_NAMES: Record<string, string> = {
   southNode: 'العقدة الجنوبية',
 };
 
-/** Builds a full chart (all bodies, houses) for a moment at the birth place. */
+/** A full chart (all bodies, houses) for a moment, at the birth place or another city. */
 function chartAt(
   natal: Natal,
   jd: number,
   title: string,
-  houseSystem: string,
+  settings: Settings,
+  place: City | null,
 ): ChartInfo {
   const chart = AstroEngine.chart({
     time: { jdUt: jd },
-    location: { lat: natal.lat, lon: natal.lon },
-    houseSystem,
-    bodies: BODIES.map(b => b.key),
+    location: place
+      ? { lat: place.lat, lon: place.lon }
+      : { lat: natal.lat, lon: natal.lon },
+    houseSystem: settings.houseSystem,
+    bodies: chartBodies(settings.points),
   });
   const d = dateFromJd(jd);
   return {
@@ -77,7 +83,9 @@ function chartAt(
         hour: d.getUTCHours(),
         minute: d.getUTCMinutes(),
       })}`,
-      'محسوبة لمكان الولادة',
+      place
+        ? `محسوبة لمدينة ${cityLabel(place)} · ${place.countryName}`
+        : 'محسوبة لمكان الولادة',
     ],
     notes: chart.warnings,
     chart,
@@ -90,13 +98,21 @@ export function PredictiveScreen({
   onBack,
 }: {
   natal: Natal;
-  onOpenChart: (make: (houseSystem: string) => ChartInfo) => void;
+  onOpenChart: (make: (settings: Settings) => ChartInfo) => void;
   onBack: () => void;
 }) {
   const now = useMemo(() => new Date(), []);
   const nowJd = jdFromDate(now);
   const [year, setYear] = useState(now.getFullYear());
   const [error, setError] = useState<string | null>(null);
+  const [elsewhere, setElsewhere] = useState(false);
+  const [query, setQuery] = useState('');
+  const [place, setPlace] = useState<City | null>(null);
+  const results = useMemo(
+    () => (place ? [] : searchCities(query, 6)),
+    [query, place],
+  );
+  const where = elsewhere ? place : null;
   const birth = natal.chart;
   const sun = birth.bodies.find(b => b.key === 'sun')!.lon;
   const moon = birth.bodies.find(b => b.key === 'moon')!.lon;
@@ -113,7 +129,7 @@ export function PredictiveScreen({
       setError('تعذّر إيجاد عودة الشمس لهذه السنة.');
       return;
     }
-    onOpenChart(hs => chartAt(natal, jd, `عودة الشمس ${year}`, hs));
+    onOpenChart(st => chartAt(natal, jd, `عودة الشمس ${year}`, st, where));
   };
 
   const openLunarReturn = () => {
@@ -123,7 +139,7 @@ export function PredictiveScreen({
       setError('تعذّر إيجاد عودة القمر.');
       return;
     }
-    onOpenChart(hs => chartAt(natal, jd, 'عودة القمر القادمة', hs));
+    onOpenChart(st => chartAt(natal, jd, 'عودة القمر القادمة', st, where));
   };
 
   const progressed = useMemo(
@@ -159,10 +175,54 @@ export function PredictiveScreen({
           { label: 'السنة التالية', onPress: () => setYear(year + 1) },
         ]}
       />
-      <Button label={`خريطة عودة الشمس ${year}`} onPress={openSolarReturn} />
+      <Toggle
+        label="حساب العودة لمدينة أخرى (مكان الإقامة)"
+        value={elsewhere}
+        onChange={setElsewhere}
+      />
+      {elsewhere ? (
+        place ? (
+          <Pressable onPress={() => setPlace(null)}>
+            <Text style={styles.place}>{`${cityLabel(place)} · ${
+              place.countryName
+            }  (تغيير)`}</Text>
+          </Pressable>
+        ) : (
+          <>
+            <Field
+              label="المدينة"
+              value={query}
+              onChangeText={setQuery}
+              placeholder="ابحث باسم المدينة"
+            />
+            {results.length ? (
+              <Card>
+                {results.map((c, i) => (
+                  <Pressable
+                    key={`${c.name}-${c.lat}-${c.lon}`}
+                    onPress={() => setPlace(c)}
+                  >
+                    <Row
+                      last={i === results.length - 1}
+                      name={cityLabel(c)}
+                      detail={c.countryName}
+                    />
+                  </Pressable>
+                ))}
+              </Card>
+            ) : null}
+          </>
+        )
+      ) : null}
+      <Button
+        label={`خريطة عودة الشمس ${year}`}
+        disabled={elsewhere && !place}
+        onPress={openSolarReturn}
+      />
       <Button
         label="خريطة عودة القمر القادمة"
         kind="secondary"
+        disabled={elsewhere && !place}
         onPress={openLunarReturn}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -256,6 +316,22 @@ export function PredictiveScreen({
 
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 14, paddingBottom: 40 },
-  subtitle: { color: colors.muted, fontSize: 14, textAlign: 'right' },
-  error: { color: colors.error, fontSize: 14, textAlign: 'right' },
+  subtitle: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 14,
+    textAlign: 'right',
+  },
+  error: {
+    fontFamily: FONT,
+    color: colors.error,
+    fontSize: 14,
+    textAlign: 'right',
+  },
+  place: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 15,
+    textAlign: 'right',
+  },
 });

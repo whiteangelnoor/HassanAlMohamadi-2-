@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from './theme';
+import { colors, FONT } from './theme';
 
 export function Header({
   title,
@@ -95,12 +95,18 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   title: {
+    fontFamily: FONT,
     color: colors.gold,
     fontSize: 26,
     fontWeight: '600',
     textAlign: 'right',
   },
-  back: { color: colors.muted, fontSize: 26, paddingHorizontal: 4 },
+  back: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 26,
+    paddingHorizontal: 4,
+  },
   button: {
     borderRadius: 12,
     paddingVertical: 14,
@@ -109,11 +115,22 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.gold },
   secondary: { borderColor: colors.line, borderWidth: 1 },
   dimmed: { opacity: 0.5 },
-  primaryText: { color: colors.goldText, fontSize: 17, fontWeight: '600' },
-  secondaryText: { color: colors.text, fontSize: 16 },
+  primaryText: {
+    fontFamily: FONT,
+    color: colors.goldText,
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  secondaryText: { fontFamily: FONT, color: colors.text, fontSize: 16 },
   field: { flex: 1, gap: 6 },
-  label: { color: colors.muted, fontSize: 13, textAlign: 'right' },
+  label: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: 'right',
+  },
   input: {
+    fontFamily: FONT,
     backgroundColor: colors.navyInput,
     borderColor: colors.line,
     borderWidth: 1,

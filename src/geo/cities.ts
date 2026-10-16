@@ -105,3 +105,23 @@ export function searchCities(query: string, limit = 30): City[] {
 export function cityLabel(c: City): string {
   return c.arabicName || c.name;
 }
+
+/** The bundled city closest to a point (for its time zone). */
+export function nearestCity(lat: number, lon: number): City {
+  const rad = Math.PI / 180;
+  let best: City | null = null;
+  let bestD = Infinity;
+  for (const { city } of load()) {
+    // Haversine without the constant factors, enough for ordering.
+    const dLat = (city.lat - lat) * rad;
+    const dLon = (city.lon - lon) * rad;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat * rad) * Math.cos(city.lat * rad) * Math.sin(dLon / 2) ** 2;
+    if (a < bestD) {
+      bestD = a;
+      best = city;
+    }
+  }
+  return best!;
+}

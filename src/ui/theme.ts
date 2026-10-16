@@ -41,6 +41,7 @@ export const BODIES: { key: BodyKey; name: string }[] = [
   { key: 'pluto', name: 'بلوتو' },
   { key: 'trueNode', name: 'العقدة الشمالية' },
   { key: 'chiron', name: 'كيرون' },
+  { key: 'meanLilith', name: 'ليليث' },
 ];
 
 /** 23.24 -> "23° 14′" */
@@ -82,6 +83,10 @@ export const ASPECT_NAMES: Record<string, string> = {
   square: 'تربيع',
   trine: 'تثليث',
   opposition: 'مقابلة',
+  semisextile: 'نصف تسديس',
+  semisquare: 'نصف تربيع',
+  sesquiquadrate: 'تربيع ونصف',
+  quincunx: 'عدم توافق',
 };
 
 export const LOT_NAMES: Record<string, string> = {
@@ -108,3 +113,20 @@ export const DIGNITY_NAMES: Record<string, string> = {
   fall: 'هبوط',
   peregrine: 'غريب',
 };
+
+/** Body list for charts, following the optional points in the settings. */
+export function chartBodies(points: {
+  trueNode: boolean;
+  chiron: boolean;
+  meanLilith: boolean;
+}): BodyKey[] {
+  return BODIES.map(b => b.key).filter(
+    k =>
+      (k !== 'trueNode' || points.trueNode) &&
+      (k !== 'chiron' || points.chiron) &&
+      (k !== 'meanLilith' || points.meanLilith),
+  );
+}
+
+/** IBM Plex Sans Arabic, registered natively under this family name. */
+export const FONT = 'Plex';

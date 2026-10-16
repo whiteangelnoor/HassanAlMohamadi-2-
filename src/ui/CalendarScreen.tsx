@@ -11,6 +11,7 @@ import { Card, Hint, Row, Stepper } from './list';
 import {
   ASPECT_NAMES,
   colors,
+  FONT,
   formatLongitude,
   POINT_NAMES,
   SIGNS,
@@ -177,6 +178,7 @@ export function CalendarScreen({ onBack }: { onBack: () => void }) {
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 14, paddingBottom: 40 },
   month: {
+    fontFamily: FONT,
     color: colors.text,
     fontSize: 20,
     fontWeight: '600',
@@ -184,11 +186,17 @@ const styles = StyleSheet.create({
   },
   day: { gap: 6 },
   dayTitle: {
+    fontFamily: FONT,
     color: colors.gold,
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'right',
     marginTop: 4,
   },
-  error: { color: colors.error, fontSize: 14, textAlign: 'right' },
+  error: {
+    fontFamily: FONT,
+    color: colors.error,
+    fontSize: 14,
+    textAlign: 'right',
+  },
 });

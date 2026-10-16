@@ -215,7 +215,19 @@ export interface InitResult {
   filesOk: boolean;
 }
 
+// Options applied to every request unless the request sets them itself,
+// e.g. the sidereal zodiac chosen in the settings.
+let defaults: CommonOptions = {};
+
+function withDefaults(req: object): string {
+  return JSON.stringify({ ...defaults, ...req });
+}
+
 export const AstroEngine = {
+  setDefaults(options: CommonOptions): void {
+    defaults = { ...options };
+  },
+
   /** Must be called once with a real filesystem directory holding the .se1 files. */
   initialize(ephePath: string): InitResult {
     const r = unwrap<InitResult>(
@@ -232,12 +244,12 @@ export const AstroEngine = {
 
   chart(req: ChartRequest): ChartResult {
     return withConsistentHouses(
-      unwrap<ChartResult>(Native.calcChart(JSON.stringify(req))),
+      unwrap<ChartResult>(Native.calcChart(withDefaults(req))),
     );
   },
 
   series(req: SeriesRequest): SeriesResult {
-    return unwrap<SeriesResult>(Native.calcSeries(JSON.stringify(req)));
+    return unwrap<SeriesResult>(Native.calcSeries(withDefaults(req)));
   },
 
   fixedStars(req: FixedStarsRequest): {
@@ -245,7 +257,7 @@ export const AstroEngine = {
     stars: FixedStar[];
     warnings: string[];
   } {
-    return unwrap(Native.calcFixedStars(JSON.stringify(req)));
+    return unwrap(Native.calcFixedStars(withDefaults(req)));
   },
 
   /** Solar and lunar eclipses whose greatest phase falls in the range. */
@@ -253,7 +265,7 @@ export const AstroEngine = {
     eclipses: Eclipse[];
     warnings: string[];
   } {
-    return unwrap(Native.calcEclipses(JSON.stringify(req)));
+    return unwrap(Native.calcEclipses(withDefaults(req)));
   },
 
   houseSystems(): { code: string; name: string }[] {

@@ -183,3 +183,32 @@ run('eclipses from the engine', () => {
     ]);
   });
 });
+
+run('settings applied to the engine', () => {
+  test('sidereal zodiac shifts every position by the ayanamsa', () => {
+    const req = {
+      time: { utc: { year: 2000, month: 1, day: 1, hour: 12 } },
+      bodies: ['sun' as const],
+    };
+    const tropical = AstroEngine.chart(req).bodies[0].lon;
+    AstroEngine.setDefaults({ zodiac: { type: 'sidereal', ayanamsa: 1 } });
+    try {
+      const sidereal = AstroEngine.chart(req).bodies[0].lon;
+      // Lahiri ayanamsa at J2000 is 23.85 degrees.
+      expect(tropical - sidereal).toBeCloseTo(23.85, 1);
+    } finally {
+      AstroEngine.setDefaults({});
+    }
+  });
+
+  test('fixed star contacts on a real chart', () => {
+    const { starContacts } = require('../src/astro/synastry');
+    // Regulus sat near 29 Leo in 1990; put a planet on it.
+    const chart = AstroEngine.chart({
+      time: { utc: { year: 1990, month: 8, day: 22, hour: 0 } },
+      bodies: ['sun'],
+    });
+    const contacts = starContacts(chart, 2);
+    expect(contacts.map((c: any) => c.star)).toContain('قلب الأسد');
+  });
+});

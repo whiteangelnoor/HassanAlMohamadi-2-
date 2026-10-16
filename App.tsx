@@ -1,7 +1,7 @@
 /**
  * Root: initializes the engine with the ephemeris directory handed over by the
- * native side, then navigates a stack of screens (home, birth form, chart,
- * transits, predictive, calendar); the back button pops one level.
+ * native side, loads the saved settings and charts, then navigates a stack of
+ * screens; the back button pops one level.
  * AGPL-3.0-or-later.
  *
  * @format
@@ -12,6 +12,7 @@ import {
   BackHandler,
   I18nManager,
   Linking,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -20,15 +21,31 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AstroEngine } from './src/astro/engine';
+import { setAspectSettings } from './src/astro/traditional';
+import { BUILD } from './src/buildInfo';
+import { cityLabel } from './src/geo/cities';
+import {
+  deleteChart,
+  loadCharts,
+  loadSettings,
+  printHtml,
+  SavedChart,
+  saveChart,
+  saveSettings,
+  Settings,
+} from './src/store';
+import { localToUtc } from './src/time/tz';
 import { BirthData, BirthForm, describeConversion } from './src/ui/BirthForm';
 import { CalendarScreen } from './src/ui/CalendarScreen';
 import { ChartInfo, ChartScreen } from './src/ui/ChartScreen';
+import { chartReportHtml } from './src/ui/pdf';
 import { Natal, PredictiveScreen } from './src/ui/PredictiveScreen';
+import { SavedList } from './src/ui/SavedList';
+import { SettingsScreen, zodiacName } from './src/ui/SettingsScreen';
+import { SynastryScreen } from './src/ui/SynastryScreen';
 import { TransitScreen } from './src/ui/TransitScreen';
-import { BODIES, colors, formatDateTime } from './src/ui/theme';
+import { chartBodies, colors, FONT, formatDateTime } from './src/ui/theme';
 import { Button, Header } from './src/ui/widgets';
-import { cityLabel } from './src/geo/cities';
-import { BUILD } from './src/buildInfo';
 
 // Layout is written right-to-left explicitly; keep it identical whatever the
 // phone language is.
@@ -40,18 +57,31 @@ type Props = {
   build?: number;
   apkUpdateUrl?: string;
 };
+
+/** Builds a chart with the current settings, so a change can recompute it. */
+type ChartMaker = (settings: Settings) => ChartInfo;
+
 type Screen =
   | { kind: 'home' }
   | { kind: 'form' }
   | { kind: 'calendar' }
-  // `place` is set for birth charts, which offer transits and predictive.
-  | { kind: 'chart'; make: ChartMaker; info: ChartInfo; place?: Place }
+  | { kind: 'settings' }
+  // `birth` is set for birth charts, which offer transits, synastry, saving.
+  | {
+      kind: 'chart';
+      make: ChartMaker;
+      info: ChartInfo;
+      birth?: BirthData;
+      savedId?: string;
+    }
   | { kind: 'transits'; natal: Natal }
-  | { kind: 'predictive'; natal: Natal };
-type Place = { lat: number; lon: number };
-
-/** Builds a chart for a house system, so the system can be switched live. */
-type ChartMaker = (houseSystem: string) => ChartInfo;
+  | { kind: 'predictive'; natal: Natal }
+  | { kind: 'partner'; birth: BirthData; info: ChartInfo }
+  | {
+      kind: 'synastry';
+      a: { name: string; info: ChartInfo };
+      b: { name: string; info: ChartInfo };
+    };
 
 const BAGHDAD = { lat: 33.3152, lon: 44.3661 };
 
@@ -74,27 +104,42 @@ function initEngine(
   }
 }
 
-function birthChart(data: BirthData, houseSystem: string): ChartInfo {
+/** Pushes the settings into the engine and the aspect finder. */
+function applySettings(s: Settings) {
+  AstroEngine.setDefaults({
+    zodiac:
+      s.zodiac.type === 'sidereal'
+        ? { type: 'sidereal', ayanamsa: s.zodiac.ayanamsa }
+        : { type: 'tropical' },
+  });
+  setAspectSettings({ orbs: s.orbs, minor: s.minorAspects });
+}
+
+function birthChart(data: BirthData, s: Settings): ChartInfo {
   const { city, conversion: c } = data;
   const chart = AstroEngine.chart({
     time: { utc: c.utc },
-    location: { lat: city.lat, lon: city.lon },
-    houseSystem,
-    bodies: BODIES.map(b => b.key),
+    // Without a birth time there is no Ascendant, so no houses either.
+    location: data.timeUnknown ? undefined : { lat: city.lat, lon: city.lon },
+    houseSystem: s.houseSystem,
+    bodies: chartBodies(s.points),
   });
   return {
     title: data.name || 'خريطة الولادة',
     lines: [
       `${cityLabel(city)} · ${city.countryName}`,
-      `بالتوقيت المحلي: ${formatDateTime(data.local)}`,
+      data.timeUnknown
+        ? `${data.local.year}/${data.local.month}/${data.local.day} · وقت الولادة غير معروف (حُسبت لمنتصف النهار)`
+        : `بالتوقيت المحلي: ${formatDateTime(data.local)}`,
       `بالتوقيت العالمي: ${formatDateTime(c.utc)}`,
+      `دائرة البروج: ${zodiacName(s)}`,
     ],
     notes: describeConversion(c).slice(1).concat(chart.warnings),
     chart,
   };
 }
 
-function skyNow(at: Date, houseSystem: string): ChartInfo {
+function skyNow(at: Date, s: Settings): ChartInfo {
   const utc = {
     year: at.getUTCFullYear(),
     month: at.getUTCMonth() + 1,
@@ -106,28 +151,59 @@ function skyNow(at: Date, houseSystem: string): ChartInfo {
   const chart = AstroEngine.chart({
     time: { utc },
     location: BAGHDAD,
-    houseSystem,
-    bodies: BODIES.map(b => b.key),
+    houseSystem: s.houseSystem,
+    bodies: chartBodies(s.points),
   });
   return {
     title: 'السماء الآن',
-    lines: ['فوق بغداد', `بالتوقيت العالمي: ${formatDateTime(utc)}`],
+    lines: [
+      'فوق بغداد',
+      `بالتوقيت العالمي: ${formatDateTime(utc)}`,
+      `دائرة البروج: ${zodiacName(s)}`,
+    ],
     notes: chart.warnings,
     chart,
   };
 }
 
+function birthFromSaved(c: SavedChart): BirthData {
+  return {
+    name: c.name,
+    local: c.local,
+    timeUnknown: c.timeUnknown,
+    city: {
+      name: c.place.name,
+      arabicName: c.place.name,
+      country: '',
+      countryName: c.place.country,
+      lat: c.place.lat,
+      lon: c.place.lon,
+      timeZone: c.place.timeZone,
+      population: 0,
+    },
+    conversion: localToUtc(c.local, c.place.timeZone, c.place.lon),
+  };
+}
+
 function App(props: Props) {
   const engine = useMemo(() => initEngine(props), [props]);
+  const [settings, setSettings] = useState<Settings>(() => {
+    const s = loadSettings();
+    applySettings(s);
+    return s;
+  });
+  const [charts, setCharts] = useState<SavedChart[]>(() => loadCharts());
   const [stack, setStack] = useState<Screen[]>([{ kind: 'home' }]);
   const screen = stack[stack.length - 1];
   const [error, setError] = useState<string | null>(null);
-  // Kept for the whole session and used for every new chart.
-  const [houseSystem, setHouseSystem] = useState('P');
+  const [message, setMessage] = useState<string | null>(null);
 
   const push = (s: Screen) => setStack(st => [...st, s]);
   const replace = (s: Screen) => setStack(st => [...st.slice(0, -1), s]);
-  const back = () => setStack(st => (st.length > 1 ? st.slice(0, -1) : st));
+  const back = () => {
+    setMessage(null);
+    setStack(st => (st.length > 1 ? st.slice(0, -1) : st));
+  };
   const home = () => setStack([{ kind: 'home' }]);
 
   useEffect(() => {
@@ -141,20 +217,55 @@ function App(props: Props) {
     return () => sub.remove();
   }, [stack]);
 
-  /** Opens a chart; `how` replaces the current screen or pushes a new one. */
+  const fail = (e: unknown) => {
+    setError(String(e));
+    home();
+  };
+
+  const chartScreen = (
+    make: ChartMaker,
+    s: Settings,
+    birth?: BirthData,
+    savedId?: string,
+  ): Screen => ({ kind: 'chart', make, info: make(s), birth, savedId });
+
   const openChart = (
     make: ChartMaker,
     how: 'push' | 'replace',
-    place?: Place,
-    system = houseSystem,
+    birth?: BirthData,
+    savedId?: string,
   ) => {
     try {
       setError(null);
-      const s: Screen = { kind: 'chart', make, info: make(system), place };
+      setMessage(null);
+      const s = chartScreen(make, settings, birth, savedId);
       how === 'push' ? push(s) : replace(s);
     } catch (e) {
-      setError(String(e));
-      home();
+      fail(e);
+    }
+  };
+
+  /** New settings: saved, applied, and every open chart recomputed. */
+  const changeSettings = (s: Settings) => {
+    saveSettings(s);
+    applySettings(s);
+    setSettings(s);
+    try {
+      setStack(st =>
+        st.map(x =>
+          x.kind === 'chart' ? chartScreen(x.make, s, x.birth, x.savedId) : x,
+        ),
+      );
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const exportPdf = async (info: ChartInfo) => {
+    try {
+      await printHtml(chartReportHtml(info, settings.houseSystem), info.title);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -171,33 +282,72 @@ function App(props: Props) {
     body = (
       <BirthForm
         onBack={back}
-        onSubmit={data =>
-          openChart(hs => birthChart(data, hs), 'replace', {
-            lat: data.city.lat,
-            lon: data.city.lon,
-          })
-        }
+        onSubmit={data => openChart(s => birthChart(data, s), 'replace', data)}
       />
     );
   } else if (screen.kind === 'chart') {
-    const { make, place, info } = screen;
-    const natal: Natal | undefined = place
-      ? { chart: info.chart, lat: place.lat, lon: place.lon, title: info.title }
-      : undefined;
-    body = (
-      <ChartScreen
-        info={info}
-        houseSystem={houseSystem}
-        onHouseSystem={code => {
-          setHouseSystem(code);
-          openChart(make, 'replace', place, code);
-        }}
-        onTransits={natal ? () => push({ kind: 'transits', natal }) : undefined}
-        onPredictive={
-          natal ? () => push({ kind: 'predictive', natal }) : undefined
+    const { info, birth, savedId } = screen;
+    const natal: Natal | undefined = birth
+      ? {
+          chart: info.chart,
+          lat: birth.city.lat,
+          lon: birth.city.lon,
+          title: info.title,
         }
-        onBack={back}
-      />
+      : undefined;
+    const actions: { label: string; onPress: () => void }[] = [];
+    if (natal && birth) {
+      actions.push({
+        label: 'العبور',
+        onPress: () => push({ kind: 'transits', natal }),
+      });
+      if (info.chart.houses) {
+        actions.push({
+          label: 'التحويلات',
+          onPress: () => push({ kind: 'predictive', natal }),
+        });
+      }
+      actions.push({
+        label: 'التوافق',
+        onPress: () => push({ kind: 'partner', birth, info }),
+      });
+      if (!savedId) {
+        actions.push({
+          label: 'حفظ',
+          onPress: () => {
+            const entry = saveChart({
+              name: birth.name || 'بلا اسم',
+              local: birth.local,
+              timeUnknown: birth.timeUnknown,
+              place: {
+                name: cityLabel(birth.city),
+                country: birth.city.countryName,
+                lat: birth.city.lat,
+                lon: birth.city.lon,
+                timeZone: birth.city.timeZone,
+              },
+            });
+            setCharts(loadCharts());
+            replace({ ...screen, savedId: entry.id });
+            setMessage('حُفظت الخريطة.');
+          },
+        });
+      }
+    }
+    actions.push({ label: 'PDF', onPress: () => exportPdf(info) });
+    body = (
+      <>
+        <ChartScreen
+          info={info}
+          houseSystem={settings.houseSystem}
+          onHouseSystem={code =>
+            changeSettings({ ...settings, houseSystem: code })
+          }
+          actions={actions}
+          onBack={back}
+        />
+        {message ? <Text style={styles.toast}>{message}</Text> : null}
+      </>
     );
   } else if (screen.kind === 'transits') {
     body = (
@@ -217,9 +367,55 @@ function App(props: Props) {
     );
   } else if (screen.kind === 'calendar') {
     body = <CalendarScreen onBack={back} />;
+  } else if (screen.kind === 'settings') {
+    body = (
+      <SettingsScreen
+        settings={settings}
+        onChange={changeSettings}
+        onBack={back}
+      />
+    );
+  } else if (screen.kind === 'partner') {
+    const { birth, info } = screen;
+    body = (
+      <ScrollView contentContainerStyle={styles.content}>
+        <Header title="التوافق مع…" onBack={back} />
+        <Text
+          style={styles.text}
+        >{`اختر شخصاً من الخرائط المحفوظة لمقارنته مع ${info.title}.`}</Text>
+        <SavedList
+          charts={charts}
+          onOpen={c => {
+            try {
+              const other = birthFromSaved(c);
+              replace({
+                kind: 'synastry',
+                a: { name: birth.name || info.title, info },
+                b: { name: c.name, info: birthChart(other, settings) },
+              });
+            } catch (e) {
+              fail(e);
+            }
+          }}
+        />
+        {charts.length === 0 ? (
+          <Text style={styles.text}>
+            لا توجد خرائط محفوظة بعد. احفظ خريطة الشخص الآخر أولاً.
+          </Text>
+        ) : null}
+      </ScrollView>
+    );
+  } else if (screen.kind === 'synastry') {
+    body = (
+      <SynastryScreen
+        a={{ name: screen.a.name, chart: screen.a.info.chart }}
+        b={{ name: screen.b.name, chart: screen.b.info.chart }}
+        onBack={back}
+      />
+    );
   } else {
     body = (
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Header title="فلك" />
         <View style={styles.actions}>
           <Button label="خريطة جديدة" onPress={() => push({ kind: 'form' })} />
@@ -228,13 +424,18 @@ function App(props: Props) {
             kind="secondary"
             onPress={() => {
               const at = new Date();
-              openChart(hs => skyNow(at, hs), 'push');
+              openChart(s => skyNow(at, s), 'push');
             }}
           />
           <Button
             label="التقويم الفلكي"
             kind="secondary"
             onPress={() => push({ kind: 'calendar' })}
+          />
+          <Button
+            label="الإعدادات"
+            kind="secondary"
+            onPress={() => push({ kind: 'settings' })}
           />
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -249,12 +450,33 @@ function App(props: Props) {
             />
           </View>
         ) : null}
+        {charts.length ? (
+          <Text style={styles.section}>الخرائط المحفوظة</Text>
+        ) : null}
+        <SavedList
+          charts={charts}
+          onOpen={c => {
+            try {
+              const data = birthFromSaved(c);
+              openChart(s => birthChart(data, s), 'push', data, c.id);
+            } catch (e) {
+              fail(e);
+            }
+          }}
+          onDelete={c => {
+            deleteChart(c.id);
+            setCharts(loadCharts());
+          }}
+        />
+        {charts.length ? (
+          <Text style={styles.hint}>اضغط مطولاً على خريطة لحذفها.</Text>
+        ) : null}
         <Text style={styles.footer}>
           {`النسخة ${BUILD || props.build || 0} · المكتبة السويسرية ${
             engine.version
           }`}
         </Text>
-      </View>
+      </ScrollView>
     );
   }
 
@@ -268,21 +490,41 @@ function App(props: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.navy },
-  content: { padding: 20, gap: 16, flex: 1 },
+  content: { padding: 20, gap: 16, flexGrow: 1 },
   actions: { gap: 12, marginTop: 12 },
   text: {
+    fontFamily: FONT,
     color: colors.text,
     fontSize: 15,
     textAlign: 'right',
     lineHeight: 24,
   },
+  section: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: 'right',
+    marginTop: 8,
+  },
+  hint: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 12,
+    textAlign: 'right',
+  },
   errorTitle: {
+    fontFamily: FONT,
     color: colors.error,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'right',
   },
-  error: { color: colors.error, fontSize: 14, textAlign: 'right' },
+  error: {
+    fontFamily: FONT,
+    color: colors.error,
+    fontSize: 14,
+    textAlign: 'right',
+  },
   update: {
     gap: 10,
     borderColor: colors.gold,
@@ -290,11 +532,28 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
   },
+  toast: {
+    fontFamily: FONT,
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    right: 24,
+    backgroundColor: colors.navyRaised,
+    borderColor: colors.gold,
+    borderWidth: 1,
+    borderRadius: 12,
+    color: colors.text,
+    textAlign: 'center',
+    padding: 12,
+    fontSize: 14,
+  },
   footer: {
+    fontFamily: FONT,
     color: colors.muted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 'auto',
+    paddingTop: 16,
   },
 });
 

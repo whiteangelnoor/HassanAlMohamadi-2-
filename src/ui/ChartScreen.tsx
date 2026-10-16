@@ -20,10 +20,12 @@ import {
   isDayChart,
   rulersAt,
 } from '../astro/traditional';
+import { starContacts } from '../astro/synastry';
 import {
   ASPECT_NAMES,
   colors,
   DIGNITY_NAMES,
+  FONT,
   formatDegree,
   formatLongitude,
   LOT_NAMES,
@@ -40,28 +42,27 @@ export interface ChartInfo {
   chart: ChartResult;
 }
 
-type Tab = 'planets' | 'aspects' | 'lots' | 'dignities';
+type Tab = 'planets' | 'aspects' | 'lots' | 'dignities' | 'stars';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'planets', label: 'الكواكب' },
   { key: 'aspects', label: 'الجوانب' },
   { key: 'lots', label: 'السهام' },
   { key: 'dignities', label: 'الكرامات' },
+  { key: 'stars', label: 'النجوم' },
 ];
 
 export function ChartScreen({
   info,
   houseSystem,
   onHouseSystem,
-  onTransits,
-  onPredictive,
+  actions,
   onBack,
 }: {
   info: ChartInfo;
   houseSystem: string;
   onHouseSystem: (code: string) => void;
-  /** Present for birth charts: open transits / returns and progressions. */
-  onTransits?: () => void;
-  onPredictive?: () => void;
+  /** Buttons shown above the wheel (transits, save, export...). */
+  actions?: { label: string; onPress: () => void }[];
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('planets');
@@ -88,6 +89,21 @@ export function ChartScreen({
         </Text>
       ))}
 
+      {actions && actions.length ? (
+        <View style={styles.actions}>
+          {actions.map(a => (
+            <Pressable
+              key={a.label}
+              onPress={a.onPress}
+              style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.chipText}>{a.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       <Wheel chart={chart} />
 
       <Pressable
@@ -100,16 +116,6 @@ export function ChartScreen({
           {`${houseSystemName(houseSystem)}  ⌄`}
         </Text>
       </Pressable>
-      {onTransits && onPredictive ? (
-        <View style={styles.actions}>
-          <View style={styles.action}>
-            <Button label="العبور" kind="secondary" onPress={onTransits} />
-          </View>
-          <View style={styles.action}>
-            <Button label="التحويلات" kind="secondary" onPress={onPredictive} />
-          </View>
-        </View>
-      ) : null}
       <HouseSystemPicker
         visible={picking}
         current={houseSystem}
@@ -144,6 +150,7 @@ export function ChartScreen({
       {tab === 'aspects' ? <Aspects chart={chart} /> : null}
       {tab === 'lots' ? <Lots chart={chart} /> : null}
       {tab === 'dignities' ? <Dignities chart={chart} /> : null}
+      {tab === 'stars' ? <Stars chart={chart} /> : null}
 
       <Button label="رجوع" kind="secondary" onPress={onBack} />
     </ScrollView>
@@ -343,6 +350,46 @@ function Lots({ chart }: { chart: ChartResult }) {
   );
 }
 
+function Stars({ chart }: { chart: ChartResult }) {
+  const contacts = useMemo(() => {
+    try {
+      return starContacts(chart);
+    } catch {
+      return null;
+    }
+  }, [chart]);
+  if (contacts === null) {
+    return <Text style={styles.hint}>تعذّر حساب النجوم الثابتة.</Text>;
+  }
+  return (
+    <>
+      {contacts.length ? (
+        <Card>
+          {contacts.map((c, i) => (
+            <Row
+              key={`${c.star}-${c.point}`}
+              last={i === contacts.length - 1}
+              name={`${c.star} مع ${POINT_NAMES[c.point]}`}
+              value={formatDegree(c.orb)}
+              detail={`النجم في ${formatLongitude(
+                c.starLon,
+              )} · القدر ${c.magnitude.toFixed(1)}`}
+            />
+          ))}
+        </Card>
+      ) : (
+        <Text style={styles.hint}>
+          لا يقترن أي من النجوم الثلاثين المعتمدة بكواكب هذه الخريطة ضمن درجة.
+        </Text>
+      )}
+      <Text style={styles.hint}>
+        اقترانات ضمن درجة واحدة مع ثلاثين نجماً من ألمع النجوم وأشهرها في
+        التراث.
+      </Text>
+    </>
+  );
+}
+
 function Dignities({ chart }: { chart: ChartResult }) {
   const rows = useMemo(
     () => (chart.houses ? chartDignities(chart) : []),
@@ -384,8 +431,20 @@ function Dignities({ chart }: { chart: ChartResult }) {
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row-reverse', gap: 10 },
-  action: { flex: 1 },
+  actions: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    borderColor: colors.gold,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chipText: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   selector: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
@@ -397,8 +456,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  selectorLabel: { color: colors.muted, fontSize: 14 },
-  selectorValue: { color: colors.gold, fontSize: 16, fontWeight: '600' },
+  selectorLabel: { fontFamily: FONT, color: colors.muted, fontSize: 14 },
+  selectorValue: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   pressed: { opacity: 0.6 },
   backdrop: {
     flex: 1,
@@ -416,6 +480,7 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   sheetTitle: {
+    fontFamily: FONT,
     color: colors.gold,
     fontSize: 18,
     fontWeight: '600',
@@ -429,19 +494,41 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  optionText: { color: colors.text, fontSize: 16, textAlign: 'right' },
-  optionActive: { color: colors.gold, fontSize: 16, fontWeight: '600' },
+  optionText: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  optionActive: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   wheel: { alignItems: 'center' },
   content: { padding: 20, gap: 14, paddingBottom: 40 },
-  subtitle: { color: colors.muted, fontSize: 14, textAlign: 'right' },
-  note: { color: colors.gold, fontSize: 13, textAlign: 'right' },
+  subtitle: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 14,
+    textAlign: 'right',
+  },
+  note: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 13,
+    textAlign: 'right',
+  },
   hint: {
+    fontFamily: FONT,
     color: colors.muted,
     fontSize: 12,
     textAlign: 'right',
     lineHeight: 19,
   },
   section: {
+    fontFamily: FONT,
     color: colors.muted,
     fontSize: 13,
     textAlign: 'right',
@@ -456,7 +543,7 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center' },
   tabActive: { backgroundColor: colors.gold },
-  tabText: { color: colors.muted, fontSize: 14 },
+  tabText: { fontFamily: FONT, color: colors.muted, fontSize: 12.5 },
   tabTextActive: { color: colors.goldText, fontWeight: '600' },
   card: {
     backgroundColor: colors.navyRaised,
@@ -478,9 +565,35 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   lastRow: { borderBottomWidth: 0 },
-  name: { color: colors.text, fontSize: 16, textAlign: 'right', flexShrink: 1 },
-  value: { color: colors.text, fontSize: 16, fontVariant: ['tabular-nums'] },
-  detail: { color: colors.muted, fontSize: 13, textAlign: 'right' },
-  positive: { color: colors.gold, fontSize: 16, fontWeight: '600' },
-  negative: { color: colors.error, fontSize: 16, fontWeight: '600' },
+  name: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 16,
+    textAlign: 'right',
+    flexShrink: 1,
+  },
+  value: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 16,
+    fontVariant: ['tabular-nums'],
+  },
+  detail: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: 'right',
+  },
+  positive: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  negative: {
+    fontFamily: FONT,
+    color: colors.error,
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });

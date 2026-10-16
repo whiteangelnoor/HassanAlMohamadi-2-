@@ -6,6 +6,12 @@ import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import { ChartScreen } from '../src/ui/ChartScreen';
 
+// No native engine under Jest; the stars tab gets an empty answer.
+jest.mock('../specs/NativeAstroEngine', () => ({
+  calcFixedStars: () =>
+    JSON.stringify({ ok: true, jdUt: 0, stars: [], warnings: [] }),
+}));
+
 // Baghdad, 1990-06-15 08:00 UTC, computed by the engine on desktop.
 const chart = require('./fixtures/chart-baghdad-1990.json');
 
@@ -42,7 +48,9 @@ test('every tab renders for a real chart', async () => {
   expect(text()).toContain('سهم السعادة');
   await press(3);
   expect(text()).toContain('صاحب الحد');
-});
+  await press(4);
+  expect(text()).toContain('النجوم');
+}, 30000);
 
 test('close planets are spread apart on the wheel', () => {
   const { spread } = require('../src/ui/ChartWheel');

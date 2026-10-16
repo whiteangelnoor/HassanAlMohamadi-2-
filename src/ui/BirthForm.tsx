@@ -3,14 +3,15 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { City, cityLabel, searchCities } from '../geo/cities';
+import { City, cityLabel, nearestCity, searchCities } from '../geo/cities';
 import {
   formatOffset,
   localToUtc,
   TZ_END_YEAR,
   UtcConversion,
 } from '../time/tz';
-import { colors, formatDateTime } from './theme';
+import { colors, FONT, formatDateTime } from './theme';
+import { Toggle } from './list';
 import { Button, Field, Header, toLatinDigits } from './widgets';
 
 export interface BirthData {
@@ -22,8 +23,19 @@ export interface BirthData {
     hour: number;
     minute: number;
   };
+  /** Noon is used and houses are left out. */
+  timeUnknown: boolean;
   city: City;
   conversion: UtcConversion;
+}
+
+function parseCoordinate(s: string, limit: number): number | null {
+  const t = toLatinDigits(s).trim().replace('،', '.').replace(',', '.');
+  if (!/^-?\d+(\.\d+)?$/.test(t)) {
+    return null;
+  }
+  const v = parseFloat(t);
+  return Math.abs(v) <= limit ? v : null;
 }
 
 type Parsed =
@@ -120,8 +132,41 @@ export function BirthForm({
   const [minute, setMinute] = useState('');
   const [query, setQuery] = useState('');
   const [city, setCity] = useState<City | null>(null);
+  const [timeUnknown, setTimeUnknown] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [lat, setLat] = useState('');
+  const [lon, setLon] = useState('');
+  const [placeName, setPlaceName] = useState('');
 
-  const parsed = parseLocal({ day, month, year, hour, minute });
+  const parsed = parseLocal({
+    day,
+    month,
+    year,
+    hour: timeUnknown ? '12' : hour,
+    minute: timeUnknown ? '0' : minute,
+  });
+
+  // Manual coordinates: the time zone is that of the nearest bundled city.
+  const manualCity = useMemo((): City | null => {
+    const la = parseCoordinate(lat, 90);
+    const lo = parseCoordinate(lon, 180);
+    if (!manual || la === null || lo === null) {
+      return null;
+    }
+    const near = nearestCity(la, lo);
+    const label = placeName.trim() || 'إحداثيات يدوية';
+    return {
+      name: label,
+      arabicName: label,
+      country: near.country,
+      countryName: `قرب ${cityLabel(near)} · ${near.countryName}`,
+      lat: la,
+      lon: lo,
+      timeZone: near.timeZone,
+      population: 0,
+    };
+  }, [manual, lat, lon, placeName]);
+  const place = manual ? manualCity : city;
   const results = useMemo(
     () => (city ? [] : searchCities(query, 8)),
     [query, city],
@@ -129,9 +174,9 @@ export function BirthForm({
 
   let conversion: UtcConversion | null = null;
   let conversionError: string | null = null;
-  if (parsed?.ok && city) {
+  if (parsed?.ok && place) {
     try {
-      conversion = localToUtc(parsed.value, city.timeZone, city.lon);
+      conversion = localToUtc(parsed.value, place.timeZone, place.lon);
     } catch (e) {
       conversionError = String(e);
     }
@@ -169,7 +214,18 @@ export function BirthForm({
           maxLength={4}
         />
       </View>
-      <View style={styles.row}>
+      <Toggle
+        label="وقت الولادة غير معروف"
+        value={timeUnknown}
+        onChange={setTimeUnknown}
+      />
+      {timeUnknown ? (
+        <Text style={styles.hint}>
+          تُحسب الخريطة لمنتصف النهار، دون طالع ولا بيوت، وموقع القمر تقريبي
+          بنحو ست درجات.
+        </Text>
+      ) : null}
+      <View style={[styles.row, timeUnknown && styles.hidden]}>
         <Field
           label="الساعة (0 إلى 23)"
           value={hour}
@@ -185,12 +241,54 @@ export function BirthForm({
           maxLength={2}
         />
       </View>
-      <Text style={styles.hint}>اكتب الوقت كما كان على ساعة مكان الولادة.</Text>
+      {timeUnknown ? null : (
+        <Text style={styles.hint}>
+          اكتب الوقت كما كان على ساعة مكان الولادة.
+        </Text>
+      )}
       {parsed && !parsed.ok ? (
         <Text style={styles.error}>{parsed.message}</Text>
       ) : null}
 
-      {city ? (
+      <Toggle
+        label="إدخال الإحداثيات يدوياً"
+        value={manual}
+        onChange={setManual}
+      />
+      {manual ? (
+        <>
+          <Field
+            label="اسم المكان (اختياري)"
+            value={placeName}
+            onChangeText={setPlaceName}
+          />
+          <View style={styles.row}>
+            <Field
+              label="خط العرض (الجنوب بالسالب)"
+              value={lat}
+              onChangeText={setLat}
+              keyboardType="numbers-and-punctuation"
+              placeholder="33.34"
+            />
+            <Field
+              label="خط الطول (الغرب بالسالب)"
+              value={lon}
+              onChangeText={setLon}
+              keyboardType="numbers-and-punctuation"
+              placeholder="44.40"
+            />
+          </View>
+          {manualCity ? (
+            <Text style={styles.hint}>
+              {`المنطقة الزمنية من أقرب مدينة: ${manualCity.countryName}`}
+            </Text>
+          ) : lat || lon ? (
+            <Text style={styles.error}>
+              اكتب العرض بين −90 و90، والطول بين −180 و180، بالأرقام العشرية.
+            </Text>
+          ) : null}
+        </>
+      ) : city ? (
         <View style={styles.card}>
           <View style={styles.cityHeader}>
             <Text style={styles.cityName}>{cityLabel(city)}</Text>
@@ -268,13 +366,14 @@ export function BirthForm({
 
       <Button
         label="احسب الخريطة"
-        disabled={!conversion || !parsed?.ok || !city}
+        disabled={!conversion || !parsed?.ok || !place}
         onPress={() => {
-          if (conversion && parsed?.ok && city) {
+          if (conversion && parsed?.ok && place) {
             onSubmit({
               name: name.trim(),
               local: parsed.value,
-              city,
+              timeUnknown,
+              city: place,
               conversion,
             });
           }
@@ -287,8 +386,19 @@ export function BirthForm({
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 14, paddingBottom: 40 },
   row: { flexDirection: 'row-reverse', gap: 10 },
-  hint: { color: colors.muted, fontSize: 13, textAlign: 'right' },
-  error: { color: colors.error, fontSize: 14, textAlign: 'right' },
+  hidden: { display: 'none' },
+  hint: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: 'right',
+  },
+  error: {
+    fontFamily: FONT,
+    color: colors.error,
+    fontSize: 14,
+    textAlign: 'right',
+  },
   card: {
     backgroundColor: colors.navyRaised,
     borderColor: colors.line,
@@ -303,9 +413,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  cityName: { color: colors.text, fontSize: 16, textAlign: 'right' },
-  cityDetail: { color: colors.muted, fontSize: 13, textAlign: 'right' },
-  change: { color: colors.gold, fontSize: 14 },
+  cityName: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  cityDetail: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: 'right',
+  },
+  change: { fontFamily: FONT, color: colors.gold, fontSize: 14 },
   result: {
     paddingVertical: 10,
     borderBottomColor: colors.line,
@@ -313,5 +433,10 @@ const styles = StyleSheet.create({
   },
   lastRow: { borderBottomWidth: 0 },
   pressed: { opacity: 0.6 },
-  convLine: { color: colors.text, fontSize: 14, textAlign: 'right' },
+  convLine: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 14,
+    textAlign: 'right',
+  },
 });

@@ -19,6 +19,7 @@ import { Card, Hint, Row, Section, Stepper } from './list';
 import {
   ASPECT_NAMES,
   colors,
+  FONT,
   formatDegree,
   formatLongitude,
   POINT_NAMES,
@@ -116,7 +117,7 @@ export function TransitScreen({
         <ChartWheel
           chart={natal}
           outer={transit}
-          outerAspects={aspects.filter(
+          aspects={aspects.filter(
             a => a.kind !== 'conjunction' && a.b !== 'asc' && a.b !== 'mc',
           )}
           size={Math.min(width - 40, 520)}
@@ -192,8 +193,14 @@ export function TransitScreen({
 
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 14, paddingBottom: 40 },
-  subtitle: { color: colors.muted, fontSize: 14, textAlign: 'right' },
+  subtitle: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 14,
+    textAlign: 'right',
+  },
   date: {
+    fontFamily: FONT,
     color: colors.text,
     fontSize: 18,
     fontWeight: '600',
@@ -202,6 +209,7 @@ const styles = StyleSheet.create({
   wheel: { alignItems: 'center' },
   group: { gap: 6 },
   month: {
+    fontFamily: FONT,
     color: colors.gold,
     fontSize: 15,
     fontWeight: '600',
