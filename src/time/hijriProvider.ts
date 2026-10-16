@@ -40,34 +40,52 @@ export interface HijriSetting {
   offset: number;
 }
 
+export interface HijriForMonth {
+  date: (y: number, m: number, d: number) => HijriDate;
+  /** Why the result fell back to the arithmetic calendar, if it did. */
+  note: string | null;
+}
+
 /**
  * Date function for civil dates around a month (year, month 1..12). For the
  * sighting calendars the month starts are computed once for the window.
+ * Any fallback is reported in `note`, never hidden.
  */
 export function hijriForMonth(
   s: HijriSetting,
   year: number,
   month: number,
-): (y: number, m: number, d: number) => HijriDate {
+): HijriForMonth {
   const shift = (y: number, m: number, d: number): [number, number, number] => {
     const t = new Date(Date.UTC(y, m - 1, d + s.offset));
     return [t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()];
   };
   if (s.choice === 'umalqura') {
-    return (y, m, d) => toHijri(...shift(y, m, d), 'umalqura');
+    const probe = toHijri(year, month, 1, 'umalqura');
+    return {
+      date: (y, m, d) => toHijri(...shift(y, m, d), 'umalqura'),
+      note:
+        probe.source === 'umalqura'
+          ? null
+          : 'تقويم أم القرى غير متوفر في هاتفك، فاستُخدم الهجري الحسابي وقد يختلف يوماً.',
+    };
   }
   let starts: number[] = [];
+  let note: string | null = null;
   try {
     starts = monthStarts(
       Date.UTC(year, month - 1, 1) - 3 * 86400000,
       Date.UTC(year, month, 1) + 3 * 86400000,
       SIGHTING_CITIES[s.choice],
     );
-  } catch {
-    starts = [];
+  } catch (e) {
+    note = `تعذّر حساب رؤية الهلال (${String(e)})، فاستُخدم الهجري الحسابي.`;
   }
-  return (y, m, d) => {
-    const [yy, mm, dd] = shift(y, m, d);
-    return sightedHijri(yy, mm, dd, starts) ?? toHijri(yy, mm, dd, 'civil');
+  return {
+    date: (y, m, d) => {
+      const [yy, mm, dd] = shift(y, m, d);
+      return sightedHijri(yy, mm, dd, starts) ?? toHijri(yy, mm, dd, 'civil');
+    },
+    note,
   };
 }

@@ -2,7 +2,7 @@
 // mansion of every day and the Hijri date, and the table of the 28 mansions.
 // AGPL-3.0-or-later.
 
-import { useEffect, useMemo, useState } from 'react';
+import { ComponentRef, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -27,7 +27,7 @@ import {
   hijriForMonth,
   HijriSetting,
 } from '../time/hijriProvider';
-import { formatDay, formatJd, formatTime, MONTHS } from './dates';
+import { formatDay, formatTime, MONTHS } from './dates';
 import { Card, Hint, Row, Section, Stepper } from './list';
 import { DateBar } from './DatePicker';
 import { colors, FONT, formatDegree, SIGNS } from './theme';
@@ -75,8 +75,10 @@ export function ArabicScreen({
   const now = useMemo(() => new Date(), []);
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [days, setDays] = useState<MansionDay[] | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(now.getDate());
   const [error, setError] = useState<string | null>(null);
+  // Tapping a day scrolls back up to its details.
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const count = new Date(ym.y, ym.m + 1, 0).getDate();
   // Local midnights of every day of the month, plus the next month's first.
@@ -116,10 +118,11 @@ export function ArabicScreen({
 
   const firstWeekday = (new Date(ym.y, ym.m, 1).getDay() + 1) % 7; // Saturday = 0
   const cell = Math.floor((width - 40) / 7);
-  const toHijri = useMemo(
+  const hijriMonth = useMemo(
     () => hijriForMonth(hijri, ym.y, ym.m + 1),
     [hijri, ym],
   );
+  const toHijri = hijriMonth.date;
   const hijriFirst = toHijri(ym.y, ym.m + 1, 1);
   const hijriLast = toHijri(ym.y, ym.m + 1, count);
   const hijriTitle =
@@ -143,7 +146,7 @@ export function ArabicScreen({
   const sel = selected !== null && days ? days[selected - 1] : null;
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView ref={scroll} contentContainerStyle={styles.content}>
       <Header title="القسم العربي" onBack={onBack} />
 
       <Section title="طريقة قياس المنازل" />
@@ -155,20 +158,59 @@ export function ArabicScreen({
         }))}
       />
 
-      {current ? (
+      <Section title="اليوم المختار" />
+      <DateBar
+        mode="day"
+        value={new Date(ym.y, ym.m, selected ?? 1)}
+        onChange={d => {
+          setYm({ y: d.getFullYear(), m: d.getMonth() });
+          setSelected(d.getDate());
+        }}
+      />
+      {selected !== null ? (
         <Card>
           <Row
-            name="القمر الآن في منزلة"
-            value={<Text style={styles.gold}>{MANSIONS[current.first]}</Text>}
-            detail={
-              current.entries.length
-                ? `يدخل ${MANSIONS[current.entries[0].mansion]} في ${formatJd(
-                    current.entries[0].jd,
-                  )}`
-                : undefined
-            }
-            last
+            name={formatDay(new Date(ym.y, ym.m, selected))}
+            detail={(() => {
+              const h = toHijri(ym.y, ym.m + 1, selected);
+              const c = HIJRI_CHOICES.find(x => x.key === hijri.choice)!;
+              return `${h.day} ${HIJRI_MONTHS[h.month - 1]} ${h.year} هـ · ${
+                c.label
+              }${
+                hijri.offset
+                  ? ` (${hijri.offset > 0 ? '+' : '−'}${Math.abs(
+                      hijri.offset,
+                    )})`
+                  : ''
+              }`;
+            })()}
           />
+          {sel ? (
+            <>
+              <Row
+                name="منزلة القمر عند بداية اليوم"
+                value={<Text style={styles.gold}>{MANSIONS[sel.first]}</Text>}
+              />
+              {sel.entries.map(e => (
+                <Row
+                  key={e.jd}
+                  name={`يدخل ${MANSIONS[e.mansion]}`}
+                  value={formatTime(dateFromJd(e.jd))}
+                />
+              ))}
+              {selected === today && current ? (
+                <Row
+                  name="القمر الآن في منزلة"
+                  value={
+                    <Text style={styles.gold}>{MANSIONS[current.first]}</Text>
+                  }
+                  last
+                />
+              ) : null}
+            </>
+          ) : (
+            <Hint>جارٍ الحساب…</Hint>
+          )}
         </Card>
       ) : null}
 
@@ -209,18 +251,13 @@ export function ArabicScreen({
         </View>
       </View>
       <Hint>{HIJRI_CHOICES.find(c => c.key === hijri.choice)!.name}</Hint>
+      {hijriMonth.note ? (
+        <Text style={styles.error}>{hijriMonth.note}</Text>
+      ) : null}
 
       <Section title="روزنامة منازل القمر" />
       <Text style={styles.month}>{`${MONTHS[ym.m]} ${ym.y}`}</Text>
       <Text style={styles.hijri}>{hijriTitle} هـ</Text>
-      <DateBar
-        mode="day"
-        value={new Date(ym.y, ym.m, selected ?? 1)}
-        onChange={d => {
-          setYm({ y: d.getFullYear(), m: d.getMonth() });
-          setSelected(d.getDate());
-        }}
-      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.grid}>
@@ -243,7 +280,10 @@ export function ArabicScreen({
           return (
             <Pressable
               key={d}
-              onPress={() => setSelected(d)}
+              onPress={() => {
+                setSelected(d);
+                scroll.current?.scrollTo({ y: 0, animated: true });
+              }}
               style={[
                 styles.cell,
                 { width: cell, height: cell * 1.55 },
@@ -271,32 +311,8 @@ export function ArabicScreen({
       <Hint>
         في كل خانة: اليوم الميلادي، واليوم الهجري، ومنزلة القمر عند بداية اليوم.
         النقطة الذهبية تعني أن القمر ينتقل إلى منزلة أخرى خلال اليوم؛ اضغط
-        الخانة لترى الوقت.
+        الخانة فتظهر تفاصيلها في «اليوم المختار» أعلاه.
       </Hint>
-
-      {sel && selected !== null ? (
-        <Card>
-          <Row
-            name={formatDay(dateFromJd(sel.startJd))}
-            detail={(() => {
-              const h = toHijri(ym.y, ym.m + 1, selected);
-              return `${h.day} ${HIJRI_MONTHS[h.month - 1]} ${h.year} هـ`;
-            })()}
-          />
-          <Row
-            name="عند بداية اليوم"
-            value={<Text style={styles.gold}>{MANSIONS[sel.first]}</Text>}
-          />
-          {sel.entries.map((e, i) => (
-            <Row
-              key={e.jd}
-              last={i === sel.entries.length - 1}
-              name={`يدخل ${MANSIONS[e.mansion]}`}
-              value={formatTime(dateFromJd(e.jd))}
-            />
-          ))}
-        </Card>
-      ) : null}
 
       <Section title="المنازل الثماني والعشرون" />
       <Card>

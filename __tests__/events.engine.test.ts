@@ -300,16 +300,28 @@ run('Hijri months by predicted sighting', () => {
   });
 
   test('the offset shifts the Hijri day', () => {
-    const a = hijriForMonth({ choice: 'tehran', offset: 0 }, 2026, 10)(
+    const a = hijriForMonth({ choice: 'tehran', offset: 0 }, 2026, 10).date(
       2026,
       10,
       16,
     );
-    const b = hijriForMonth({ choice: 'tehran', offset: 1 }, 2026, 10)(
+    const b = hijriForMonth({ choice: 'tehran', offset: 1 }, 2026, 10).date(
       2026,
       10,
       16,
     );
     expect(b.day === a.day + 1 || (b.day === 1 && a.day >= 29)).toBe(true);
+  });
+});
+
+run('Hijri calendars differ and report fallbacks', () => {
+  const { hijriForMonth } = require('../src/time/hijriProvider');
+  test('Umm al-Qura and the Tehran prediction differ on 16 October 2026', () => {
+    const u = hijriForMonth({ choice: 'umalqura', offset: 0 }, 2026, 10);
+    const t = hijriForMonth({ choice: 'tehran', offset: 0 }, 2026, 10);
+    expect(u.note).toBeNull();
+    expect(t.note).toBeNull();
+    expect(u.date(2026, 10, 16).day).toBe(5);
+    expect(t.date(2026, 10, 16).day).toBe(4);
   });
 });
