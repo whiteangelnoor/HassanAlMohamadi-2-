@@ -3,6 +3,7 @@
 // everything still works for the session, in memory. AGPL-3.0-or-later.
 
 import Host from '../specs/NativeFalakHost';
+import type { Planet } from './astro/traditional';
 
 const memory = new Map<string, string>();
 
@@ -53,6 +54,8 @@ export interface Settings {
   place: SavedPlace | null;
   /** Optional points shown in charts. */
   points: { trueNode: boolean; chiron: boolean; meanLilith: boolean };
+  /** Reminders for the hours of these planets, `lead` minutes early. */
+  hourAlerts: { planets: Planet[]; lead: number };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -74,6 +77,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hijri: { choice: 'umalqura', offset: 0 },
   place: null,
   points: { trueNode: true, chiron: true, meanLilith: false },
+  hourAlerts: { planets: [], lead: 0 },
 };
 
 export function loadSettings(): Settings {
@@ -85,6 +89,7 @@ export function loadSettings(): Settings {
     orbs: { ...DEFAULT_SETTINGS.orbs, ...s.orbs },
     points: { ...DEFAULT_SETTINGS.points, ...s.points },
     hijri: { ...DEFAULT_SETTINGS.hijri, ...s.hijri },
+    hourAlerts: { ...DEFAULT_SETTINGS.hourAlerts, ...s.hourAlerts },
   };
 }
 
@@ -144,4 +149,34 @@ export async function printHtml(html: string, jobName: string): Promise<void> {
     throw new Error('التصدير يحتاج النسخة الأحدث من التطبيق.');
   }
   await Host.printHtml(html, jobName);
+}
+
+// ---------- reminders -----------------------------------------------------------------
+
+/** Whether this build of the app can show reminders. */
+export const remindersSupported = typeof Host?.scheduleReminders === 'function';
+
+/** Replaces the pending reminders on the phone. */
+export function scheduleReminders(
+  list: { at: number; title: string; body: string }[],
+) {
+  if (remindersSupported) {
+    Host!.scheduleReminders(JSON.stringify(list));
+  }
+}
+
+export function exactAlarmsAllowed(): boolean {
+  try {
+    return remindersSupported ? Host!.exactAlarmsAllowed() : true;
+  } catch {
+    return true;
+  }
+}
+
+export function openExactAlarmSettings() {
+  try {
+    Host?.openExactAlarmSettings();
+  } catch {
+    // nothing to open on this phone
+  }
 }

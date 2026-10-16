@@ -1,7 +1,11 @@
-// Storage and printing for the JavaScript side. AGPL-3.0-or-later.
+// Storage, printing and reminders for the JavaScript side. AGPL-3.0-or-later.
 package com.falak.app
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
@@ -64,6 +68,21 @@ class FalakHostModule(context: ReactApplicationContext) : NativeFalakHostSpec(co
         promise.reject("PRINT_FAILED", e)
       }
     }
+  }
+
+  override fun scheduleReminders(json: String) {
+    HourReminders.replace(reactApplicationContext, json)
+  }
+
+  override fun exactAlarmsAllowed(): Boolean = HourReminders.exactAllowed(reactApplicationContext)
+
+  override fun openExactAlarmSettings() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    val intent =
+        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+            .setData(Uri.parse("package:" + reactApplicationContext.packageName))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    reactApplicationContext.startActivity(intent)
   }
 
   companion object {

@@ -22,6 +22,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AstroEngine } from './src/astro/engine';
 import { setAspectSettings } from './src/astro/traditional';
+import { hourReminders } from './src/spiritual/reminders';
 import { BUILD } from './src/buildInfo';
 import { cityLabel } from './src/geo/cities';
 import {
@@ -32,6 +33,7 @@ import {
   SavedChart,
   saveChart,
   saveSettings,
+  scheduleReminders,
   Settings,
 } from './src/store';
 import { localToUtc } from './src/time/tz';
@@ -243,6 +245,32 @@ function App(props: Props) {
     });
     return () => sub.remove();
   }, [stack]);
+
+  // Reminders for the chosen spiritual hours: the next ten days, refreshed
+  // at every start and whenever the choice or the city changes.
+  const alerts = settings.hourAlerts;
+  const alertPlace = settings.place ?? DEFAULT_PLACE;
+  useEffect(() => {
+    if (!engine.ok) {
+      return;
+    }
+    const id = setTimeout(() => {
+      try {
+        scheduleReminders(
+          hourReminders(
+            alerts.planets,
+            alerts.lead,
+            alertPlace,
+            Date.now(),
+            10,
+          ),
+        );
+      } catch {
+        // the reminders keep their last schedule
+      }
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [engine.ok, alerts, alertPlace]);
 
   const fail = (e: unknown) => {
     setError(String(e));

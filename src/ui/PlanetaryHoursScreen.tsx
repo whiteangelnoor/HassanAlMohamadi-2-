@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { dateFromJd, jdFromDate } from '../astro/events';
 import { PlanetaryDay, planetaryDay } from '../astro/planetaryHours';
 import { cityLabel, searchCities } from '../geo/cities';
+import { HOUR_TRAITS } from '../spiritual/hourTraits';
 import { SavedPlace } from '../store';
 import { formatTime } from './dates';
 import { DateBar } from './DatePicker';
@@ -52,6 +53,8 @@ export function PlanetaryHoursScreen({
     [picking, query],
   );
   const [now, setNow] = useState(() => jdFromDate(new Date()));
+  const [open, setOpen] = useState<number | null>(null);
+  const toggle = (i: number) => setOpen(o => (o === i ? null : i));
 
   useEffect(() => {
     const id = setInterval(() => setNow(jdFromDate(new Date())), 30000);
@@ -180,6 +183,7 @@ export function PlanetaryHoursScreen({
             </View>
           ) : null}
 
+          <Hint>اضغط على أي ساعة لترى ما تصلح له.</Hint>
           <Section title="ساعات النهار (من الشروق إلى الغروب)" />
           <Card>
             {result.hours.slice(0, 12).map((h, i) => (
@@ -188,6 +192,8 @@ export function PlanetaryHoursScreen({
                 h={h}
                 t={t}
                 active={h === current}
+                open={open === h.index}
+                onPress={() => toggle(h.index)}
                 last={i === 11}
               />
             ))}
@@ -200,6 +206,8 @@ export function PlanetaryHoursScreen({
                 h={h}
                 t={t}
                 active={h === current}
+                open={open === h.index}
+                onPress={() => toggle(h.index)}
                 last={i === 11}
               />
             ))}
@@ -221,20 +229,38 @@ function HourRow({
   h,
   t,
   active,
+  open,
+  onPress,
   last,
 }: {
   h: PlanetaryDay['hours'][number];
   t: (jd: number) => string;
   active: boolean;
+  open: boolean;
+  onPress: () => void;
   last: boolean;
 }) {
+  const traits = HOUR_TRAITS[h.ruler];
   return (
-    <Row
-      last={last}
-      highlight={active}
-      name={`${h.day ? h.index : h.index - 12}. ${POINT_NAMES[h.ruler]}`}
-      value={`${t(h.startJd)} – ${t(h.endJd)}`}
-    />
+    <Pressable onPress={onPress} accessibilityRole="button">
+      <Row
+        last={last || open}
+        highlight={active}
+        name={`${h.day ? h.index : h.index - 12}. ${POINT_NAMES[h.ruler]}`}
+        value={`${t(h.startJd)} – ${t(h.endJd)}`}
+      />
+      {open ? (
+        <View style={[styles.traits, !last && styles.traitsLine]}>
+          <Text style={styles.traitsNature}>{traits.nature}</Text>
+          <Text style={styles.traitsText}>{`تصلح لـ: ${traits.good}`}</Text>
+          {traits.avoid ? (
+            <Text
+              style={styles.traitsText}
+            >{`تُتّقى لـ: ${traits.avoid}`}</Text>
+          ) : null}
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -270,6 +296,24 @@ const styles = StyleSheet.create({
     color: colors.gold,
     fontSize: 17,
     fontWeight: '600',
+    textAlign: 'right',
+  },
+  traits: { paddingBottom: 12, gap: 4 },
+  traitsLine: {
+    borderBottomColor: colors.line,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  traitsNature: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 13,
+    textAlign: 'right',
+  },
+  traitsText: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 22,
     textAlign: 'right',
   },
   nowDetail: {

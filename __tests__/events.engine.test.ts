@@ -350,4 +350,30 @@ run('sunrise, sunset and planetary hours', () => {
     expect(p.hours[23].endJd).toBeCloseTo(p.nextSunrise, 8);
     expect(p.hours[12].startJd).toBeCloseTo(p.sunset, 8);
   });
+
+  test('reminders: each Venus hour ahead, five minutes early', () => {
+    const { hourReminders } = require('../src/spiritual/reminders');
+    const place = {
+      name: 'بغداد',
+      country: 'العراق',
+      lat: 33.3406,
+      lon: 44.4009,
+      timeZone: 'Asia/Baghdad',
+    };
+    const from = Date.UTC(2026, 9, 16, 0, 0); // before Friday's sunrise
+    const list = hourReminders(['venus'], 5, place, from, 1);
+    const p = planetaryDay(2026, 10, 16, 33.3406, 44.4009);
+    const venus = p.hours
+      .filter((h: any) => h.ruler === 'venus')
+      .map((h: any) => Math.round((h.startJd - 2440587.5) * 86400000) - 300000);
+    for (const at of venus) {
+      expect(list.some((r: any) => Math.abs(r.at - at) < 1000)).toBe(true);
+    }
+    expect(list.every((r: any) => r.at > from)).toBe(true);
+    expect(list.every((r: any) => r.title.includes('الزهرة'))).toBe(true);
+    expect(list.map((r: any) => r.at)).toEqual(
+      [...list.map((r: any) => r.at)].sort((a, b) => a - b),
+    );
+    expect(hourReminders([], 0, place, from, 1)).toEqual([]);
+  });
 });
