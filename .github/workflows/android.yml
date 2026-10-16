@@ -42,6 +42,8 @@ jobs:
   apk:
     name: Release APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -63,3 +65,14 @@ jobs:
           name: falak-release-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+      - name: Publish as a downloadable release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk falak.apk
+          tag="build-${{ github.run_number }}"
+          gh release create "$tag" falak.apk \
+            --target "${{ github.sha }}" --prerelease \
+            --title "نسخة تجريبية ${{ github.run_number }}" \
+            --notes "ملف تثبيت للتجربة، موقّع بمفتاح التطوير."
