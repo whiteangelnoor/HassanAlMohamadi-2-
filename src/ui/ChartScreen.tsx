@@ -1,7 +1,14 @@
 // One chart: planets and houses, aspects, lots, dignities. AGPL-3.0-or-later.
 
 import { ReactNode, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { ChartResult } from '../astro/engine';
 import {
@@ -22,6 +29,7 @@ import {
   POINT_NAMES,
 } from './theme';
 import { Button, Header } from './widgets';
+import { ChartWheel } from './ChartWheel';
 
 export interface ChartInfo {
   title: string;
@@ -30,8 +38,9 @@ export interface ChartInfo {
   chart: ChartResult;
 }
 
-type Tab = 'planets' | 'aspects' | 'lots' | 'dignities';
+type Tab = 'wheel' | 'planets' | 'aspects' | 'lots' | 'dignities';
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'wheel', label: 'العجلة' },
   { key: 'planets', label: 'الكواكب' },
   { key: 'aspects', label: 'الجوانب' },
   { key: 'lots', label: 'السهام' },
@@ -45,7 +54,7 @@ export function ChartScreen({
   info: ChartInfo;
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>('planets');
+  const [tab, setTab] = useState<Tab>('wheel');
   const { chart } = info;
   const day = chart.houses ? isDayChart(chart) : null;
 
@@ -86,6 +95,7 @@ export function ChartScreen({
         ))}
       </View>
 
+      {tab === 'wheel' ? <Wheel chart={chart} /> : null}
       {tab === 'planets' ? <Planets chart={chart} /> : null}
       {tab === 'aspects' ? <Aspects chart={chart} /> : null}
       {tab === 'lots' ? <Lots chart={chart} /> : null}
@@ -129,6 +139,15 @@ function Section({ title }: { title: string }) {
 }
 
 // ---------- tabs ---------------------------------------------------------------
+
+function Wheel({ chart }: { chart: ChartResult }) {
+  const { width } = useWindowDimensions();
+  return (
+    <View style={styles.wheel}>
+      <ChartWheel chart={chart} size={Math.min(width - 40, 520)} />
+    </View>
+  );
+}
 
 function Planets({ chart }: { chart: ChartResult }) {
   const houses = chart.houses;
@@ -273,6 +292,7 @@ function Dignities({ chart }: { chart: ChartResult }) {
 }
 
 const styles = StyleSheet.create({
+  wheel: { alignItems: 'center' },
   content: { padding: 20, gap: 14, paddingBottom: 40 },
   subtitle: { color: colors.muted, fontSize: 14, textAlign: 'right' },
   note: { color: colors.gold, fontSize: 13, textAlign: 'right' },
@@ -297,7 +317,7 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center' },
   tabActive: { backgroundColor: colors.gold },
-  tabText: { color: colors.muted, fontSize: 14 },
+  tabText: { color: colors.muted, fontSize: 13 },
   tabTextActive: { color: colors.goldText, fontWeight: '600' },
   card: {
     backgroundColor: colors.navyRaised,
