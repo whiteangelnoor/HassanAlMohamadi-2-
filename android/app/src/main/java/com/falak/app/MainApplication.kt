@@ -17,6 +17,8 @@ class MainApplication : Application(), ReactApplication {
           // Packages that cannot be autolinked yet can be added manually here, for example:
           // add(MyReactNativePackage())
         },
+      // A downloaded update of the screens, or null for the embedded bundle.
+      jsBundleFilePath = OtaUpdater.bundleForLaunch(applicationContext),
     )
   }
 

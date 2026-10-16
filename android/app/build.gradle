@@ -82,8 +82,16 @@ android {
         applicationId "com.falak.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // CI passes -PfalakBuild (run number) and -PfalakRuntime (hash of
+        // everything native); local builds get "dev", which disables OTA.
+        versionCode((findProperty("falakBuild") ?: "1").toString().toInteger())
+        versionName "1.0.${findProperty("falakBuild") ?: "0"}"
+        buildConfigField "String", "RUNTIME_VERSION", "\"${findProperty("falakRuntime") ?: "dev"}\""
+        buildConfigField "String", "OTA_BASE_URL",
+            "\"https://github.com/whiteangelnoor/HassanAlMohamadi-2-/releases/download/ota\""
+    }
+    buildFeatures {
+        buildConfig true
     }
     externalNativeBuild {
         cmake {

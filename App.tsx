@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   BackHandler,
   I18nManager,
+  Linking,
   StatusBar,
   StyleSheet,
   Text,
@@ -28,7 +29,12 @@ import { cityLabel } from './src/geo/cities';
 // phone language is.
 I18nManager.allowRTL(false);
 
-type Props = { ephePath?: string; ephemerisError?: string };
+type Props = {
+  ephePath?: string;
+  ephemerisError?: string;
+  build?: number;
+  apkUpdateUrl?: string;
+};
 type Screen =
   | { kind: 'home' }
   | { kind: 'form' }
@@ -163,7 +169,20 @@ function App(props: Props) {
           />
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Text style={styles.footer}>المكتبة السويسرية {engine.version}</Text>
+        {props.apkUpdateUrl ? (
+          <View style={styles.update}>
+            <Text style={styles.text}>
+              صدرت نسخة جديدة من التطبيق تحتاج تثبيتاً. نزّلها ثم افتح الملف.
+            </Text>
+            <Button
+              label="تنزيل النسخة الجديدة"
+              onPress={() => Linking.openURL(props.apkUpdateUrl!)}
+            />
+          </View>
+        ) : null}
+        <Text style={styles.footer}>
+          {`النسخة ${props.build ?? 0} · المكتبة السويسرية ${engine.version}`}
+        </Text>
       </View>
     );
   }
@@ -193,6 +212,13 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   error: { color: colors.error, fontSize: 14, textAlign: 'right' },
+  update: {
+    gap: 10,
+    borderColor: colors.gold,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+  },
   footer: {
     color: colors.muted,
     fontSize: 12,

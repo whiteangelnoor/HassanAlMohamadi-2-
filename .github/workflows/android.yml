@@ -5,9 +5,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Publishing jobs must not be cut off halfway, so runs queue instead of cancelling.
 concurrency:
   group: android-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   engine:
@@ -39,8 +40,34 @@ jobs:
       - run: npx tsc --noEmit
       - run: npx jest
 
+  meta:
+    name: Versions
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.v.outputs.runtime }}
+      build: ${{ steps.v.outputs.build }}
+      publish: ${{ steps.v.outputs.publish }}
+      new_apk: ${{ steps.v.outputs.new_apk }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runtime=$(tools/runtime_version.sh)
+          echo "runtime=$runtime" >> "$GITHUB_OUTPUT"
+          echo "build=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          publish=${{ github.event_name == 'push' }}
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          # A new APK is published only when native code changed since the last one.
+          published=$(curl -sfL "https://github.com/${{ github.repository }}/releases/download/ota/apk.json" \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin)["runtime"])' || echo none)
+          echo "native runtime $runtime, last published APK runtime $published"
+          if [ "$runtime" != "$published" ]; then echo "new_apk=true" >> "$GITHUB_OUTPUT"; else echo "new_apk=false" >> "$GITHUB_OUTPUT"; fi
+
   apk:
     name: Release APK
+    needs: meta
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -59,20 +86,71 @@ jobs:
       - run: npm ci
       - name: Assemble
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        run: >-
+          ./gradlew assembleRelease --no-daemon
+          -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+          -PfalakBuild=${{ needs.meta.outputs.build }}
+          -PfalakRuntime=${{ needs.meta.outputs.runtime }}
       - uses: actions/upload-artifact@v4
         with:
           name: falak-release-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
-      - name: Publish as a downloadable release
-        if: github.event_name != 'pull_request'
+      - name: Publish the APK
+        if: needs.meta.outputs.publish == 'true' && needs.meta.outputs.new_apk == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          gh release view ota >/dev/null 2>&1 || gh release create ota --prerelease \
+            --title "التحديثات" --notes "يقرأ التطبيق التحديثات من هنا. لا تحذف هذه الصفحة."
           cp android/app/build/outputs/apk/release/app-release.apk falak.apk
-          tag="build-${{ github.run_number }}"
-          gh release create "$tag" falak.apk \
-            --target "${{ github.sha }}" --prerelease \
-            --title "نسخة تجريبية ${{ github.run_number }}" \
-            --notes "ملف تثبيت للتجربة، موقّع بمفتاح التطوير."
+          url="https://github.com/${{ github.repository }}/releases/download/ota/falak.apk"
+          printf '{"build":%s,"runtime":"%s","url":"%s"}\n' \
+            "${{ needs.meta.outputs.build }}" "${{ needs.meta.outputs.runtime }}" "$url" > apk.json
+          gh release upload ota falak.apk --clobber
+          gh release upload ota apk.json --clobber
+
+  ota:
+    name: Screens update (OTA)
+    needs: [meta, js, apk]
+    if: needs.meta.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Bundle and compile to Hermes bytecode
+        run: |
+          mkdir -p out/res
+          npx react-native bundle --platform android --dev false --reset-cache \
+            --entry-file index.js --bundle-output out/index.android.bundle \
+            --assets-dest out/res --minify false
+          node_modules/hermes-compiler/hermesc/linux64-bin/hermesc -w -emit-binary \
+            -max-diagnostic-width=80 -out out/bundle.hbc out/index.android.bundle -O
+          if [ -n "$(find out/res -type f)" ]; then
+            echo "::error::the bundle has image assets, which OTA updates cannot deliver"; exit 1
+          fi
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          build=${{ needs.meta.outputs.build }}
+          runtime=${{ needs.meta.outputs.runtime }}
+          gh release view ota >/dev/null 2>&1 || gh release create ota --prerelease \
+            --title "التحديثات" --notes "يقرأ التطبيق التحديثات من هنا. لا تحذف هذه الصفحة."
+          sha=$(sha256sum out/bundle.hbc | cut -d' ' -f1)
+          gzip -9 -c out/bundle.hbc > "bundle-$build.hbc.gz"
+          url="https://github.com/${{ github.repository }}/releases/download/ota/bundle-$build.hbc.gz"
+          printf '{"build":%s,"runtime":"%s","sha256":"%s","url":"%s"}\n' \
+            "$build" "$runtime" "$sha" "$url" > "manifest-$runtime.json"
+          gh release upload ota "bundle-$build.hbc.gz" --clobber
+          gh release upload ota "manifest-$runtime.json" --clobber
+          # Keep the five newest bundles; older ones are no longer referenced.
+          gh release view ota --json assets -q '.assets[].name' \
+            | grep -E '^bundle-[0-9]+\.hbc\.gz$' | sort -t- -k2 -n | head -n -5 \
+            | xargs -r -n1 gh release delete-asset ota -y

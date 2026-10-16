@@ -37,4 +37,13 @@ test('shows the home screen once the engine is ready', async () => {
   const out = await render(<App ephePath="/x" />);
   expect(out).toContain('خريطة جديدة');
   expect(out).toContain('2.10.03');
+  expect(out).not.toContain('تنزيل النسخة الجديدة');
+});
+
+test('offers a newer APK when one is published', async () => {
+  const out = await render(
+    <App ephePath="/x" build={7} apkUpdateUrl="https://x/falak.apk" />,
+  );
+  expect(out).toContain('تنزيل النسخة الجديدة');
+  expect(out).toContain('النسخة 7');
 });
