@@ -49,6 +49,7 @@ import { SpiritualPage, SpiritualScreen } from './src/ui/SpiritualScreen';
 import { SpiritualSignScreen } from './src/ui/SpiritualSignScreen';
 import { NameMatchScreen } from './src/ui/NameMatchScreen';
 import { ElectionScreen } from './src/ui/ElectionScreen';
+import { HoraryScreen } from './src/ui/HoraryScreen';
 import {
   DEFAULT_PLACE,
   PlanetaryHoursScreen,
@@ -80,6 +81,7 @@ type Screen =
   | { kind: 'calendar' }
   | { kind: 'settings' }
   | { kind: 'arabic' }
+  | { kind: 'horary' }
   | { kind: 'spiritual' }
   | { kind: 'spiritualPage'; page: SpiritualPage }
   // `birth` is set for birth charts, which offer transits, synastry, saving.
@@ -453,6 +455,10 @@ function App(props: Props) {
           onBack={back}
         />
       );
+  } else if (screen.kind === 'horary') {
+    body = (
+      <HoraryScreen place={settings.place ?? DEFAULT_PLACE} onBack={back} />
+    );
   } else if (screen.kind === 'arabic') {
     body = (
       <ArabicScreen
@@ -527,6 +533,11 @@ function App(props: Props) {
             label="التقويم الفلكي"
             kind="secondary"
             onPress={() => push({ kind: 'calendar' })}
+          />
+          <Button
+            label="علم المسائل (التنجيم الساعي)"
+            kind="secondary"
+            onPress={() => push({ kind: 'horary' })}
           />
           <Button
             label="القسم العربي ومنازل القمر"

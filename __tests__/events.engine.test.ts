@@ -461,3 +461,76 @@ run('suitable times', () => {
     }
   });
 });
+
+run('horary judgment', () => {
+  const { judge } = require('../src/astro/horary');
+  const { rulersAt } = require('../src/astro/traditional');
+  const names = {
+    planet: (p: string) => p,
+    aspect: (k: string) => k,
+    date: (jd: number) => String(jd),
+  };
+  const place = { lat: 33.3406, lon: 44.4009 };
+  const at = (jd: number, body: string) =>
+    AstroEngine.chart({
+      zodiac: { type: 'tropical' },
+      time: { jdUt: jd },
+      bodies: [body as any],
+    }).bodies[0].lon;
+  const TARGET: Record<string, number[]> = {
+    conjunction: [0],
+    sextile: [60, 300],
+    square: [90, 270],
+    trine: [120, 240],
+    opposition: [180],
+  };
+  const exact = (j: any) => {
+    const d = (((at(j.jd, j.a) - at(j.jd, j.b)) % 360) + 360) % 360;
+    return Math.min(
+      ...TARGET[j.kind].map(t => Math.abs(((d - t + 540) % 360) - 180)),
+    );
+  };
+  const sign = (lon: number) => Math.floor((((lon % 360) + 360) % 360) / 30);
+
+  const base = jdFromDate(new Date(Date.UTC(2026, 9, 16, 9, 0)));
+  const moments = [0, 0.37, 1.9, 4.2, 9.6, 17.3, 33.1, 61.7].map(d => base + d);
+
+  test('lords, exact aspects and sign limits hold', () => {
+    const outcomes = new Set<string>();
+    for (const [i, jd] of moments.entries()) {
+      const house = [7, 10, 2, 5, 9, 11, 4, 12][i];
+      const r = judge(jd, place, house, names);
+      outcomes.add(r.outcome);
+      const cusps = r.chart.houses.cusps;
+      const ascLord = rulersAt(cusps[0]).domicile;
+      const matterLord = rulersAt(cusps[house - 1]).domicile;
+      expect(r.quesited.planet).toBe(matterLord);
+      expect(r.querent.planet).toBe(ascLord === matterLord ? 'moon' : ascLord);
+      if (r.perfection) {
+        expect(r.perfection.jd).toBeGreaterThan(jd);
+        expect(exact(r.perfection)).toBeLessThan(0.05);
+        for (const p of [r.perfection.a, r.perfection.b]) {
+          expect(sign(at(r.perfection.jd - 1e-4, p))).toBe(sign(at(jd, p)));
+        }
+        expect(r.timing).toBeTruthy();
+      } else {
+        expect(r.timing).toBeNull();
+      }
+      if (r.moonNext) {
+        expect(exact(r.moonNext)).toBeLessThan(0.05);
+        expect(sign(at(r.moonNext.jd - 1e-4, 'moon'))).toBe(
+          sign(at(jd, 'moon')),
+        );
+      }
+      expect(r.testimonies.length).toBeGreaterThan(0);
+    }
+    expect(outcomes.size).toBeGreaterThan(0);
+  });
+
+  test('an unspoken question takes the house of the Moon’s next planet', () => {
+    const r = judge(moments[1], place, 'intention', names);
+    expect(r.intention).not.toBeNull();
+    const by = r.chart.bodies.find((b: any) => b.key === r.intention.by);
+    expect(r.house).toBe(Math.floor(by.housePosition));
+  });
+});
