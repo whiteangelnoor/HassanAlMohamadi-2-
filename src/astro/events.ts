@@ -277,8 +277,9 @@ export function returnTime(
   lon: number,
   startJd: number,
   endJd: number,
+  options: CommonOptions = {},
 ): number | null {
-  const t = tracks([body], startJd, endJd)[body];
+  const t = tracks([body], startJd, endJd, 1, options)[body];
   const hits = crossings(t, fixedTrack(lon, t), [0]).filter(
     c => c.direction > 0,
   );
@@ -288,8 +289,11 @@ export function returnTime(
   // Polish with the engine: a few Newton steps on the exact longitude.
   let jd = hits[0].jd;
   for (let it = 0; it < 4; it++) {
-    const b = AstroEngine.chart({ time: { jdUt: jd }, bodies: [body] })
-      .bodies[0];
+    const b = AstroEngine.chart({
+      ...options,
+      time: { jdUt: jd },
+      bodies: [body],
+    }).bodies[0];
     jd -= wrap180(b.lon - lon) / b.lonSpeed;
   }
   return jd;
@@ -307,4 +311,16 @@ export function lonAt(t: Track, jd: number): number {
     t.step,
     x - i,
   );
+}
+
+/** The March equinox of a Gregorian year (UT, JD), in the tropical zodiac. */
+export function marchEquinox(year: number): number {
+  const around = jdFromDate(new Date(Date.UTC(year, 2, 20)));
+  const jd = returnTime('sun', 0, around - 3, around + 3, {
+    zodiac: { type: 'tropical' },
+  });
+  if (jd === null) {
+    throw new Error(`no equinox found for ${year}`);
+  }
+  return jd;
 }

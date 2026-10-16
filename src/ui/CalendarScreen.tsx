@@ -7,7 +7,8 @@ import { CalendarEvent, calendarEvents } from '../astro/calendar';
 import { AstroEngine } from '../astro/engine';
 import { dateFromJd, jdFromDate } from '../astro/events';
 import { dayKey, formatDay, formatJd, formatTime, monthTitle } from './dates';
-import { Card, Hint, Row, Stepper } from './list';
+import { Card, Hint, Row } from './list';
+import { DateBar } from './DatePicker';
 import {
   ASPECT_NAMES,
   colors,
@@ -110,11 +111,6 @@ export function CalendarScreen({ onBack }: { onBack: () => void }) {
     return () => clearTimeout(id);
   }, [ym]);
 
-  const move = (k: number) => {
-    const d = new Date(ym.y, ym.m + k, 1);
-    setYm({ y: d.getFullYear(), m: d.getMonth() });
-  };
-
   // Group by local day; a void period that started last month is shown on
   // the first day of this one.
   const monthStart = jdFromDate(new Date(ym.y, ym.m, 1));
@@ -132,15 +128,10 @@ export function CalendarScreen({ onBack }: { onBack: () => void }) {
     <ScrollView contentContainerStyle={styles.content}>
       <Header title="التقويم الفلكي" onBack={onBack} />
       <Text style={styles.month}>{monthTitle(ym.y, ym.m)}</Text>
-      <Stepper
-        items={[
-          { label: 'الشهر السابق', onPress: () => move(-1) },
-          {
-            label: 'هذا الشهر',
-            onPress: () => setYm({ y: now.getFullYear(), m: now.getMonth() }),
-          },
-          { label: 'الشهر التالي', onPress: () => move(1) },
-        ]}
+      <DateBar
+        mode="month"
+        value={new Date(ym.y, ym.m, 1)}
+        onChange={d => setYm({ y: d.getFullYear(), m: d.getMonth() })}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {events === null && !error ? <Hint>جارٍ الحساب…</Hint> : null}

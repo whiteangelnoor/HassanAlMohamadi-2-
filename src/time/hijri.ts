@@ -1,8 +1,17 @@
 // Hijri dates. AGPL-3.0-or-later.
 //
-// The Umm al-Qura calendar (Saudi official) when the phone's Intl supports
-// it; otherwise the arithmetic (tabular) Islamic calendar, which can differ
-// by a day. Either may differ by a day from local moon sighting.
+// Lunar Hijri, chosen in the settings:
+// - 'umalqura': the Saudi official Umm al-Qura calendar (from the phone's
+//   Intl when it has it, otherwise the arithmetic calendar);
+// - 'civil': the arithmetic (tabular) calendar, civil epoch;
+// - 'astronomical': the arithmetic calendar, astronomical epoch (one day
+//   ahead of 'civil').
+// Calendars that follow moon sighting (Najaf, Tehran's lunar calendar...)
+// have no formula; the user shifts the result by -2..+2 days instead.
+//
+// Solar Hijri ('persian'), the official calendar of Iran: the year starts on
+// the day of the March equinox if it falls before noon Tehran time (UTC+3:30),
+// otherwise the next day. The equinox comes from the engine.
 
 export const HIJRI_MONTHS = [
   'محرّم',
@@ -19,11 +28,35 @@ export const HIJRI_MONTHS = [
   'ذو الحجة',
 ];
 
+export const PERSIAN_MONTHS = [
+  'فروردين',
+  'أرديبهشت',
+  'خرداد',
+  'تير',
+  'مرداد',
+  'شهريور',
+  'مهر',
+  'آبان',
+  'آذر',
+  'دي',
+  'بهمن',
+  'إسفند',
+];
+
+export type HijriKind = 'umalqura' | 'civil' | 'astronomical' | 'persian';
+
+export const HIJRI_KIND_NAMES: Record<HijriKind, string> = {
+  umalqura: 'أم القرى',
+  civil: 'الهجري الحسابي',
+  astronomical: 'الهجري الحسابي الفلكي',
+  persian: 'الهجري الشمسي (إيران)',
+};
+
 export interface HijriDate {
   year: number;
   month: number; // 1..12
   day: number;
-  source: 'umalqura' | 'tabular';
+  source: 'umalqura' | 'tabular' | 'persian';
 }
 
 let formatter: Intl.DateTimeFormat | null | undefined;
@@ -95,14 +128,83 @@ function tabular(y: number, m: number, d: number): HijriDate {
   return { year, month, day, source: 'tabular' };
 }
 
-/** Hijri date of a civil (Gregorian) date. */
-export function toHijri(y: number, m: number, d: number): HijriDate {
-  const f = umalqura();
-  if (f) {
-    const p = parts(f, new Date(Date.UTC(y, m - 1, d, 12)));
-    if (p) {
-      return { ...p, source: 'umalqura' };
+/** Gregorian date shifted by whole days. */
+function shift(
+  y: number,
+  m: number,
+  d: number,
+  days: number,
+): [number, number, number] {
+  const t = new Date(Date.UTC(y, m - 1, d + days, 12));
+  return [t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()];
+}
+
+/** Lunar Hijri date of a Gregorian date (`kind` other than 'persian'). */
+export function toHijri(
+  y: number,
+  m: number,
+  d: number,
+  kind: Exclude<HijriKind, 'persian'> = 'umalqura',
+  offsetDays = 0,
+): HijriDate {
+  const [yy, mm, dd] = shift(y, m, d, offsetDays);
+  if (kind === 'umalqura') {
+    const f = umalqura();
+    if (f) {
+      const p = parts(f, new Date(Date.UTC(yy, mm - 1, dd, 12)));
+      if (p) {
+        return { ...p, source: 'umalqura' };
+      }
     }
+    return tabular(yy, mm, dd);
   }
-  return tabular(y, m, d);
+  if (kind === 'astronomical') {
+    return tabular(...shift(yy, mm, dd, 1));
+  }
+  return tabular(yy, mm, dd);
+}
+
+// ---------- solar Hijri ----------------------------------------------------------
+
+/** Finds the March equinox (UT, JD) of a Gregorian year; supplied by the app. */
+export type EquinoxFinder = (gregorianYear: number) => number;
+
+const nowruzCache = new Map<number, number>();
+
+/** Gregorian date (UTC midnight, ms) of 1 Farvardin in a Gregorian year. */
+function nowruz(gYear: number, equinox: EquinoxFinder): number {
+  let v = nowruzCache.get(gYear);
+  if (v === undefined) {
+    const jd = equinox(gYear);
+    // Tehran standard time, UTC+3:30.
+    const tehran = new Date((jd - 2440587.5) * 86400000 + 3.5 * 3600000);
+    const day = Date.UTC(
+      tehran.getUTCFullYear(),
+      tehran.getUTCMonth(),
+      tehran.getUTCDate(),
+    );
+    v = tehran.getUTCHours() < 12 ? day : day + 86400000;
+    nowruzCache.set(gYear, v);
+  }
+  return v;
+}
+
+export function toPersian(
+  y: number,
+  m: number,
+  d: number,
+  equinox: EquinoxFinder,
+): HijriDate {
+  const t = Date.UTC(y, m - 1, d);
+  let start = nowruz(y, equinox);
+  let year = y - 621;
+  if (t < start) {
+    start = nowruz(y - 1, equinox);
+    year -= 1;
+  }
+  const doy = Math.round((t - start) / 86400000);
+  const month =
+    doy < 186 ? Math.floor(doy / 31) + 1 : 7 + Math.floor((doy - 186) / 30);
+  const day = doy < 186 ? (doy % 31) + 1 : ((doy - 186) % 30) + 1;
+  return { year, month, day, source: 'persian' };
 }

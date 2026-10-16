@@ -15,7 +15,8 @@ import { AspectHit, jdFromDate } from '../astro/events';
 import { crossAspects, upcomingTransits } from '../astro/predictive';
 import { ChartWheel } from './ChartWheel';
 import { formatDay, formatJd, MONTHS } from './dates';
-import { Card, Hint, Row, Section, Stepper } from './list';
+import { Card, Hint, Row, Section } from './list';
+import { DateBar } from './DatePicker';
 import {
   ASPECT_NAMES,
   colors,
@@ -79,14 +80,6 @@ export function TransitScreen({
     return () => clearTimeout(id);
   }, [natal, startJd]);
 
-  const shift = (days: number, months = 0) => {
-    const d = new Date(date.getTime() + days * DAY);
-    if (months) {
-      d.setMonth(d.getMonth() + months);
-    }
-    setDate(d);
-  };
-
   // Group the yearly list by local month.
   const groups: { title: string; hits: AspectHit[] }[] = [];
   for (const h of upcoming ?? []) {
@@ -103,15 +96,7 @@ export function TransitScreen({
       <Header title="العبور" onBack={onBack} />
       <Text style={styles.subtitle}>{title}</Text>
       <Text style={styles.date}>{formatDay(date)}</Text>
-      <Stepper
-        items={[
-          { label: 'شهر −', onPress: () => shift(0, -1) },
-          { label: 'يوم −', onPress: () => shift(-1) },
-          { label: 'اليوم', onPress: () => setDate(new Date()) },
-          { label: 'يوم +', onPress: () => shift(1) },
-          { label: 'شهر +', onPress: () => shift(0, 1) },
-        ]}
-      />
+      <DateBar mode="day" value={date} onChange={setDate} />
 
       <View style={styles.wheel}>
         <ChartWheel

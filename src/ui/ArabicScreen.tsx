@@ -24,6 +24,7 @@ import {
 import { HIJRI_MONTHS, toHijri } from '../time/hijri';
 import { formatDay, formatJd, formatTime, MONTHS } from './dates';
 import { Card, Hint, Row, Section, Stepper } from './list';
+import { DateBar } from './DatePicker';
 import { colors, FONT, formatDegree, SIGNS } from './theme';
 import { Button, Header } from './widgets';
 
@@ -104,12 +105,6 @@ export function ArabicScreen({
     }
   }, [method]);
 
-  const move = (k: number) => {
-    const d = new Date(ym.y, ym.m + k, 1);
-    setYm({ y: d.getFullYear(), m: d.getMonth() });
-    setSelected(null);
-  };
-
   const firstWeekday = (new Date(ym.y, ym.m, 1).getDay() + 1) % 7; // Saturday = 0
   const cell = Math.floor((width - 40) / 7);
   const hijriFirst = toHijri(ym.y, ym.m + 1, 1);
@@ -167,18 +162,13 @@ export function ArabicScreen({
       <Section title="روزنامة منازل القمر" />
       <Text style={styles.month}>{`${MONTHS[ym.m]} ${ym.y}`}</Text>
       <Text style={styles.hijri}>{hijriTitle} هـ</Text>
-      <Stepper
-        items={[
-          { label: 'الشهر السابق', onPress: () => move(-1) },
-          {
-            label: 'هذا الشهر',
-            onPress: () => {
-              setYm({ y: now.getFullYear(), m: now.getMonth() });
-              setSelected(null);
-            },
-          },
-          { label: 'الشهر التالي', onPress: () => move(1) },
-        ]}
+      <DateBar
+        mode="day"
+        value={new Date(ym.y, ym.m, selected ?? 1)}
+        onChange={d => {
+          setYm({ y: d.getFullYear(), m: d.getMonth() });
+          setSelected(d.getDate());
+        }}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

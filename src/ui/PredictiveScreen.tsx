@@ -18,7 +18,8 @@ import { City, cityLabel, searchCities } from '../geo/cities';
 import { Settings } from '../store';
 import { ChartInfo } from './ChartScreen';
 import { formatDay, formatJd } from './dates';
-import { Card, Hint, Row, Section, Stepper, Toggle } from './list';
+import { Card, Hint, Row, Section, Toggle } from './list';
+import { DateBar } from './DatePicker';
 import {
   ASPECT_NAMES,
   chartBodies,
@@ -164,16 +165,10 @@ export function PredictiveScreen({
       <Text style={styles.subtitle}>{natal.title}</Text>
 
       <Section title="عودة الشمس" />
-      <Stepper
-        items={[
-          { label: 'السنة السابقة', onPress: () => setYear(year - 1) },
-          {
-            label: String(year),
-            onPress: () => setYear(now.getFullYear()),
-            active: true,
-          },
-          { label: 'السنة التالية', onPress: () => setYear(year + 1) },
-        ]}
+      <DateBar
+        mode="year"
+        value={new Date(year, 0, 1)}
+        onChange={d => setYear(d.getFullYear())}
       />
       <Toggle
         label="حساب العودة لمدينة أخرى (مكان الإقامة)"
