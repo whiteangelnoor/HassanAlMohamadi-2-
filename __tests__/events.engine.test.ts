@@ -534,26 +534,28 @@ run('horary judgment', () => {
     expect(r.house).toBe(Math.floor(by.housePosition));
   });
 
-  test('full readings: every chapter, no gaps, consistent with the chart', () => {
-    const { horaryReading } = require('../src/astro/horaryReading');
+  test('answers: every kind keeps to its question, no gaps', () => {
+    const { horaryAnswer } = require('../src/astro/horaryAnswer');
     const kinds = ['lost', 'theft', 'sick', 'return', 'pregnancy', undefined];
     const houses = [2, 7, 6, 9, 5, 10];
     for (const [i, jd] of moments.slice(0, 6).entries()) {
       const r = judge(jd, place, houses[i], names);
-      const sections = horaryReading(r, kinds[i], true, {
+      const a = horaryAnswer(r, kinds[i], false, {
         planet: (p: string) => p,
-        aspect: (k: string) => k,
+        date: (x: number) => String(x),
       });
-      const text = JSON.stringify(sections);
-      expect(text).not.toMatch(/undefined|NaN|null/);
-      for (const sec of sections) {
-        expect(sec.lines.length).toBeGreaterThan(0);
+      const text = JSON.stringify(a);
+      expect(text).not.toMatch(/undefined|NaN/);
+      expect(['yes', 'no', 'doubt']).toContain(a.verdict);
+      expect(a.headline.length).toBeGreaterThan(5);
+      // The answer itself names no planet; the evidence does.
+      const plain = [a.headline, ...a.paragraphs, a.place ?? ''].join(' ');
+      for (const p of ['saturn', 'jupiter', 'mars', 'venus', 'mercury']) {
+        expect(plain).not.toContain(p);
       }
-      const titles = sections.map((x: any) => x.title);
-      expect(titles).toContain('حال السائل');
-      expect(titles).toContain('المكان والجهة');
-      if (kinds[i]) {
-        expect(sections.length).toBeGreaterThanOrEqual(8);
+      if (kinds[i] === 'sick') {
+        expect(plain).toContain('الطبيب');
+        expect(plain).not.toMatch(/جار|أخ /);
       }
       for (const x of r.aspectsNow) {
         const d = at(jd, x.a) - at(jd, x.b);

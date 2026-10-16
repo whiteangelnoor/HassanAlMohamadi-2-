@@ -2,7 +2,7 @@
 // later books. Each matter is judged by the lord of its house.
 // AGPL-3.0-or-later.
 
-import type { MatterKind } from './horaryReading';
+import type { MatterKind } from './horaryAnswer';
 
 export interface HouseMatters {
   house: number;

@@ -1,7 +1,7 @@
 // Horary questions: choose the matter (or leave it unspoken), and the chart
 // of the moment is judged with every testimony shown. AGPL-3.0-or-later.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -12,24 +12,18 @@ import {
 } from 'react-native';
 
 import { jdFromDate } from '../astro/events';
-import {
-  HoraryAspect,
-  HoraryJudgment,
-  judge,
-  PlanetState,
-} from '../astro/horary';
-import { horaryReading } from '../astro/horaryReading';
+import { HoraryAspect, HoraryJudgment, judge } from '../astro/horary';
+import { horaryAnswer } from '../astro/horaryAnswer';
 import {
   HOUSE_MATTERS,
   MATTER_KIND,
   PERSON_HOUSES,
 } from '../astro/horaryTopics';
-import { DignityKind } from '../astro/traditional';
 import { SavedPlace } from '../store';
 import { ChartWheel } from './ChartWheel';
 import { formatJd } from './dates';
 import { Card, Hint, Row, Section } from './list';
-import { colors, FONT, formatLongitude, POINT_NAMES } from './theme';
+import { colors, FONT, POINT_NAMES } from './theme';
 import { Button, Field, Header } from './widgets';
 
 const ASPECT_ADVERB: Record<HoraryAspect, string> = {
@@ -40,41 +34,7 @@ const ASPECT_ADVERB: Record<HoraryAspect, string> = {
   opposition: 'مقابلةً',
 };
 
-const DIGNITY: Partial<Record<DignityKind, string>> = {
-  domicile: 'في بيته',
-  exaltation: 'في شرفه',
-  triplicity: 'في مثلثته',
-  term: 'في حدّه',
-  face: 'في وجهه',
-  detriment: 'في وباله',
-  fall: 'في هبوطه',
-  peregrine: 'غريب',
-};
-
-const ANGULARITY = {
-  angular: 'وتد',
-  succedent: 'مائل',
-  cadent: 'زائل',
-};
-
 type Matter = { house: number; label: string } | 'intention';
-
-function describe(s: PlanetState): string {
-  return [
-    `البيت ${s.house} (${ANGULARITY[s.angularity]})`,
-    ...s.dignities.map(d => DIGNITY[d]).filter(Boolean),
-    s.retrograde ? 'راجع' : null,
-    s.sun === 'combust'
-      ? 'محترق'
-      : s.sun === 'beams'
-      ? 'تحت الشعاع'
-      : s.sun === 'cazimi'
-      ? 'في قلب الشمس'
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-}
 
 const OUTCOME = {
   yes: { word: 'يتم', color: colors.gold },
@@ -96,6 +56,24 @@ export function HoraryScreen({
   const [askedAt, setAskedAt] = useState<number | null>(null);
   const [result, setResult] = useState<HoraryJudgment | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showEvidence, setShowEvidence] = useState(false);
+  const answer = useMemo(
+    () =>
+      result
+        ? horaryAnswer(
+            result,
+            matter && matter !== 'intention'
+              ? MATTER_KIND[matter.label]
+              : undefined,
+            PERSON_HOUSES.includes(result.house),
+            {
+              planet: p => POINT_NAMES[p],
+              date: jd => formatJd(jd),
+            },
+          )
+        : null,
+    [result, matter],
+  );
 
   useEffect(() => {
     if (askedAt === null || matter === null) {
@@ -125,14 +103,12 @@ export function HoraryScreen({
   }, [askedAt, matter, place]);
 
   const choose = (m: Matter) => {
+    setShowEvidence(false);
     setMatter(m);
     setPicking(false);
     setAskedAt(null);
     setResult(null);
   };
-
-  const N = (p: string) => POINT_NAMES[p];
-  const houseTitle = (h: number) => HOUSE_MATTERS[h - 1].title;
 
   return (
     <ScrollView
@@ -215,166 +191,85 @@ export function HoraryScreen({
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {askedAt !== null && !result && !error ? <Hint>جارٍ الحكم…</Hint> : null}
 
-      {result ? (
+      {result && answer ? (
         <>
-          <View
-            style={[
-              styles.verdict,
-              { borderColor: OUTCOME[result.outcome].color },
-            ]}
-          >
-            <Text
-              style={[
-                styles.verdictWord,
-                { color: OUTCOME[result.outcome].color },
-              ]}
-            >
-              {OUTCOME[result.outcome].word}
-            </Text>
-            <Text style={styles.verdictText}>{result.summary}</Text>
-            <Text style={styles.verdictTime}>{`لحظة السؤال: ${formatJd(
-              result.jd,
-            )}`}</Text>
-          </View>
-
-          {result.intention ? (
-            <Card>
-              <Row
-                name="ما يدور عليه السؤال"
-                value={`البيت ${result.house}`}
-                detail={`${houseTitle(result.house)}: ${HOUSE_MATTERS[
-                  result.house - 1
-                ].matters.join('، ')}. استُخرج من ${
-                  result.intention.via === 'moon'
-                    ? `الكوكب الذي يتصل به القمر (${N(result.intention.by)})`
-                    : `صاحب الساعة (${N(result.intention.by)})`
-                } وموضعه في البيت ${result.house}.`}
-                last
-              />
-            </Card>
-          ) : null}
-
-          {horaryReading(
-            result,
-            matter && matter !== 'intention'
-              ? MATTER_KIND[matter.label]
-              : undefined,
-            PERSON_HOUSES.includes(result.house),
-            { planet: p => POINT_NAMES[p], aspect: k => ASPECT_ADVERB[k] },
-          ).map(sec => (
-            <View key={sec.title} style={styles.group}>
-              <Section title={sec.title} />
-              <Card>
-                {sec.lines.map((l, i) => (
-                  <Text
-                    key={i}
-                    style={[
-                      styles.readingLine,
-                      i === sec.lines.length - 1 && styles.lastRow,
-                    ]}
-                  >
-                    {l}
-                  </Text>
-                ))}
-              </Card>
-            </View>
-          ))}
-
-          <Section title="الدلائل وأوزانها" />
-          <Card>
-            {result.testimonies.map((x, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.testimony,
-                  i === result.testimonies.length - 1 && styles.lastRow,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.mark,
-                    {
-                      color:
-                        x.weight > 0
-                          ? colors.gold
-                          : x.weight < 0
-                          ? colors.error
-                          : colors.muted,
-                    },
-                  ]}
-                >
-                  {x.weight > 0 ? '✓' : x.weight < 0 ? '✗' : '•'}
-                </Text>
-                <Text style={styles.testimonyText}>{x.text}</Text>
-              </View>
-            ))}
-          </Card>
-
-          {result.timing ? (
-            <>
-              <Section title="التوقيت" />
-              <Card>
-                <Row name="متى" detail={result.timing} last />
-              </Card>
-            </>
-          ) : null}
-
-          {result.considerations.length ? (
-            <>
-              <Section title="موانع الحكم (تُراعى قبل الجزم)" />
-              <Card>
-                {result.considerations.map((c, i) => (
-                  <Row
-                    key={i}
-                    name={c}
-                    last={i === result.considerations.length - 1}
-                  />
-                ))}
-              </Card>
-            </>
-          ) : null}
-
-          <Section title="صاحبا المسألة" />
-          <Card>
-            <Row
-              name={`${result.sameLord ? 'شريك السائل' : 'صاحب السائل'}: ${N(
-                result.querent.planet,
-              )}`}
-              value={formatLongitude(result.querent.lon)}
-              detail={describe(result.querent)}
-            />
-            <Row
-              name={`صاحب المسألة (البيت ${result.house}): ${N(
-                result.quesited.planet,
-              )}`}
-              value={formatLongitude(result.quesited.lon)}
-              detail={describe(result.quesited)}
-            />
-            <Row
-              name="القمر"
-              value={formatLongitude(result.moon.lon)}
-              detail={[
-                describe(result.moon),
-                result.moonLast ? `انفصل عن ${N(result.moonLast.b)}` : null,
-                result.moonNext
-                  ? `يتصل بـ${N(result.moonNext.b)} ${
-                      ASPECT_ADVERB[result.moonNext.kind]
-                    }`
-                  : 'خالي السير',
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            />
-            <Row
-              name="صاحب الساعة"
-              value={result.hourLord ? N(result.hourLord) : '—'}
-              last
-            />
-          </Card>
-
           <View style={styles.wheel}>
             <ChartWheel chart={result.chart} size={Math.min(width - 40, 520)} />
           </View>
+
+          <View
+            style={[
+              styles.verdict,
+              { borderColor: OUTCOME[answer.verdict].color },
+            ]}
+          >
+            {result.intention ? (
+              <Text style={styles.intentionNote}>
+                {`سؤالك يدور على الأغلب حول: ${
+                  HOUSE_MATTERS[result.house - 1].title
+                }.`}
+              </Text>
+            ) : null}
+            <Text
+              style={[
+                styles.verdictWord,
+                { color: OUTCOME[answer.verdict].color },
+              ]}
+            >
+              {answer.headline}
+            </Text>
+            <Text style={styles.verdictText}>
+              {answer.paragraphs.join(' ')}
+            </Text>
+          </View>
+
+          {answer.place || answer.person || answer.when ? (
+            <Card>
+              {[
+                answer.place ? ['المكان', answer.place] : null,
+                answer.person ? ['الصفة', answer.person] : null,
+                answer.when ? ['متى', answer.when] : null,
+              ]
+                .filter((x): x is string[] => x !== null)
+                .map(([k, v], i, all) => (
+                  <Row
+                    key={k}
+                    name={k}
+                    detail={v}
+                    last={i === all.length - 1}
+                  />
+                ))}
+            </Card>
+          ) : null}
+
+          {answer.caution ? (
+            <Text style={styles.caution}>{answer.caution}</Text>
+          ) : null}
+
+          <Text style={styles.verdictTime}>{`لحظة السؤال: ${formatJd(
+            result.jd,
+          )} · ${place.name}`}</Text>
+
+          <Pressable onPress={() => setShowEvidence(v => !v)}>
+            <Text style={styles.toggle}>
+              {showEvidence ? 'إخفاء الأدلة الفلكية' : 'عرض الأدلة الفلكية'}
+            </Text>
+          </Pressable>
+          {showEvidence ? (
+            <Card>
+              {answer.evidence.map((l, i) => (
+                <Text
+                  key={i}
+                  style={[
+                    styles.readingLine,
+                    i === answer.evidence.length - 1 && styles.lastRow,
+                  ]}
+                >
+                  {l}
+                </Text>
+              ))}
+            </Card>
+          ) : null}
         </>
       ) : null}
 
@@ -415,6 +310,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'right',
   },
+  intentionNote: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: 'right',
+  },
+  caution: {
+    fontFamily: FONT,
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 21,
+    textAlign: 'right',
+  },
+  toggle: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 15,
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
   intentionText: {
     fontFamily: FONT,
     color: colors.text,
@@ -447,7 +362,8 @@ const styles = StyleSheet.create({
   },
   verdictWord: {
     fontFamily: FONT,
-    fontSize: 26,
+    fontSize: 20,
+    lineHeight: 32,
     fontWeight: '700',
     textAlign: 'right',
   },

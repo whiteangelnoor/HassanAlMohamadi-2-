@@ -115,6 +115,8 @@ export interface HoraryJudgment {
   translation: Planet | null;
   collection: Planet | null;
   fortune: { lon: number; house: number };
+  /** The next exact aspect of a and b before either leaves its sign. */
+  joinOf: (a: Planet, b: Planet) => Join | null;
 }
 
 export interface NowAspect {
@@ -685,6 +687,8 @@ export function judge(
     translation,
     collection,
     fortune: fortuneOf(chart),
+    joinOf: (a: Planet, b: Planet) =>
+      a === b ? null : nextJoin(t, a, b, jd, Math.min(exit(a), exit(b))),
   };
 }
 
