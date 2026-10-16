@@ -325,3 +325,29 @@ run('Hijri calendars differ and report fallbacks', () => {
     expect(t.date(2026, 10, 16).day).toBe(4);
   });
 });
+
+run('sunrise, sunset and planetary hours', () => {
+  const { sunrise, sunset } = require('../src/astro/sun');
+  const { planetaryDay } = require('../src/astro/planetaryHours');
+  const local = (jd: number, hours: number) => {
+    const d = new Date((jd - 2440587.5) * 86400000 + hours * 3600000);
+    return d.getUTCHours() * 60 + d.getUTCMinutes();
+  };
+
+  // Reference: NOAA solar calculator, 06:06 and 17:29 local (UTC+3).
+  test('Baghdad, 16 October 2026: sunrise and sunset match NOAA', () => {
+    const day = Date.UTC(2026, 9, 16);
+    const r = sunrise(day, 33.3406, 44.4009);
+    const s = sunset(day, 33.3406, 44.4009);
+    expect(Math.abs(local(r, 3) - (6 * 60 + 6))).toBeLessThanOrEqual(3);
+    expect(Math.abs(local(s, 3) - (17 * 60 + 29))).toBeLessThanOrEqual(3);
+  });
+
+  test('a Friday starts with Venus, 24 hours fill sunrise to sunrise', () => {
+    const p = planetaryDay(2026, 10, 16, 33.3406, 44.4009);
+    expect(p.weekday).toBe(5);
+    expect(p.hours[0].ruler).toBe('venus');
+    expect(p.hours[23].endJd).toBeCloseTo(p.nextSunrise, 8);
+    expect(p.hours[12].startJd).toBeCloseTo(p.sunset, 8);
+  });
+});

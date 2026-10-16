@@ -42,6 +42,12 @@ import { chartReportHtml } from './src/ui/pdf';
 import { Natal, PredictiveScreen } from './src/ui/PredictiveScreen';
 import { SavedList } from './src/ui/SavedList';
 import { ArabicScreen } from './src/ui/ArabicScreen';
+import { SpiritualPage, SpiritualScreen } from './src/ui/SpiritualScreen';
+import { SpiritualSignScreen } from './src/ui/SpiritualSignScreen';
+import {
+  DEFAULT_PLACE,
+  PlanetaryHoursScreen,
+} from './src/ui/PlanetaryHoursScreen';
 import { MANSIONS, mansionOf, mansionOptions } from './src/astro/mansions';
 import { SettingsScreen, zodiacName } from './src/ui/SettingsScreen';
 import { SynastryScreen } from './src/ui/SynastryScreen';
@@ -69,6 +75,8 @@ type Screen =
   | { kind: 'calendar' }
   | { kind: 'settings' }
   | { kind: 'arabic' }
+  | { kind: 'spiritual' }
+  | { kind: 'spiritualPage'; page: SpiritualPage }
   // `birth` is set for birth charts, which offer transits, synastry, saving.
   | {
       kind: 'chart';
@@ -386,6 +394,24 @@ function App(props: Props) {
     );
   } else if (screen.kind === 'calendar') {
     body = <CalendarScreen onBack={back} />;
+  } else if (screen.kind === 'spiritual') {
+    body = (
+      <SpiritualScreen
+        onOpen={page => push({ kind: 'spiritualPage', page })}
+        onBack={back}
+      />
+    );
+  } else if (screen.kind === 'spiritualPage') {
+    body =
+      screen.page === 'sign' ? (
+        <SpiritualSignScreen onBack={back} />
+      ) : (
+        <PlanetaryHoursScreen
+          place={settings.place ?? DEFAULT_PLACE}
+          onPlace={p => changeSettings({ ...settings, place: p })}
+          onBack={back}
+        />
+      );
   } else if (screen.kind === 'arabic') {
     body = (
       <ArabicScreen
@@ -465,6 +491,11 @@ function App(props: Props) {
             label="القسم العربي ومنازل القمر"
             kind="secondary"
             onPress={() => push({ kind: 'arabic' })}
+          />
+          <Button
+            label="القسم الروحاني"
+            kind="secondary"
+            onPress={() => push({ kind: 'spiritual' })}
           />
           <Button
             label="الإعدادات"

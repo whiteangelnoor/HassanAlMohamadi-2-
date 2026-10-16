@@ -49,6 +49,8 @@ export interface Settings {
   mansions: 'tropical' | 'stars';
   /** Hijri calendar and a manual correction in days. */
   hijri: { choice: 'umalqura' | 'karachi' | 'tehran' | 'qom'; offset: number };
+  /** City for the spiritual hours; null = Baghdad. */
+  place: SavedPlace | null;
   /** Optional points shown in charts. */
   points: { trueNode: boolean; chiron: boolean; meanLilith: boolean };
 }
@@ -70,6 +72,7 @@ export const DEFAULT_SETTINGS: Settings = {
   minorAspects: false,
   mansions: 'tropical',
   hijri: { choice: 'umalqura', offset: 0 },
+  place: null,
   points: { trueNode: true, chiron: true, meanLilith: false },
 };
 

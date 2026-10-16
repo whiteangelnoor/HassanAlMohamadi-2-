@@ -33,6 +33,11 @@ import { CalendarScreen } from '../src/ui/CalendarScreen';
 import { PredictiveScreen } from '../src/ui/PredictiveScreen';
 import { TransitScreen } from '../src/ui/TransitScreen';
 import { ArabicScreen } from '../src/ui/ArabicScreen';
+import { SpiritualScreen } from '../src/ui/SpiritualScreen';
+import {
+  DEFAULT_PLACE,
+  PlanetaryHoursScreen,
+} from '../src/ui/PlanetaryHoursScreen';
 
 const run = env.ASTRO_CLI && env.ASTRO_EPHE ? describe : describe.skip;
 
@@ -43,7 +48,7 @@ async function render(el: React.ReactElement) {
     tree = ReactTestRenderer.create(el);
   });
   await ReactTestRenderer.act(async () => {
-    jest.runAllTimers();
+    jest.runOnlyPendingTimers();
   });
   jest.useRealTimers();
   return JSON.stringify(tree!.toJSON());
@@ -100,5 +105,24 @@ run('new screens with the real engine', () => {
     expect(out).toContain('بطن الحوت');
     expect(out).toContain('هـ');
     expect(out).not.toContain('جارٍ الحساب');
+  }, 60000);
+
+  test('spiritual section: three cards and the planetary hours', async () => {
+    const grid = await render(
+      <SpiritualScreen onOpen={() => {}} onBack={() => {}} />,
+    );
+    for (const t of ['البرج الروحاني', 'الساعات الروحانية', 'قريباً']) {
+      expect(grid).toContain(t);
+    }
+    const hours = await render(
+      <PlanetaryHoursScreen
+        place={DEFAULT_PLACE}
+        onPlace={() => {}}
+        onBack={() => {}}
+      />,
+    );
+    expect(hours).toContain('ساعات النهار');
+    expect(hours).toContain('الشروق');
+    expect(hours).not.toContain('جارٍ الحساب');
   }, 60000);
 });

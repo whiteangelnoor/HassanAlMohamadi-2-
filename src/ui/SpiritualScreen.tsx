@@ -1,0 +1,76 @@
+// The spiritual section: a grid of cards, three to a row. AGPL-3.0-or-later.
+
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import { Hint } from './list';
+import { colors, FONT } from './theme';
+import { Header } from './widgets';
+
+export type SpiritualPage = 'sign' | 'hours';
+
+const CARDS: { key: SpiritualPage | null; title: string; glyph: string }[] = [
+  { key: 'sign', title: 'البرج الروحاني', glyph: '♈︎' },
+  { key: 'hours', title: 'الساعات الروحانية', glyph: '☉︎' },
+  { key: null, title: 'قريباً', glyph: '✦' },
+];
+
+export function SpiritualScreen({
+  onOpen,
+  onBack,
+}: {
+  onOpen: (page: SpiritualPage) => void;
+  onBack: () => void;
+}) {
+  return (
+    <ScrollView contentContainerStyle={styles.content}>
+      <Header title="القسم الروحاني" onBack={onBack} />
+      <View style={styles.grid}>
+        {CARDS.map(c => (
+          <Pressable
+            key={c.title}
+            disabled={!c.key}
+            onPress={() => c.key && onOpen(c.key)}
+            style={({ pressed }) => [
+              styles.card,
+              !c.key && styles.soon,
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.glyph, !c.key && styles.dim]}>{c.glyph}</Text>
+            <Text style={[styles.title, !c.key && styles.dim]}>{c.title}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Hint>أبواب أخرى من التراث الروحاني تُضاف هنا تباعاً.</Hint>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: 20, gap: 16 },
+  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10 },
+  card: {
+    width: '31.5%',
+    aspectRatio: 0.9,
+    backgroundColor: colors.navyRaised,
+    borderColor: colors.gold,
+    borderWidth: 1,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    padding: 8,
+  },
+  soon: { borderColor: colors.line },
+  pressed: { opacity: 0.6 },
+  glyph: { color: colors.gold, fontSize: 30 },
+  title: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 13.5,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  dim: { color: colors.muted },
+});
