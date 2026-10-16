@@ -41,6 +41,8 @@ import { ChartInfo, ChartScreen } from './src/ui/ChartScreen';
 import { chartReportHtml } from './src/ui/pdf';
 import { Natal, PredictiveScreen } from './src/ui/PredictiveScreen';
 import { SavedList } from './src/ui/SavedList';
+import { ArabicScreen } from './src/ui/ArabicScreen';
+import { MANSIONS, mansionOf, mansionOptions } from './src/astro/mansions';
 import { SettingsScreen, zodiacName } from './src/ui/SettingsScreen';
 import { SynastryScreen } from './src/ui/SynastryScreen';
 import { TransitScreen } from './src/ui/TransitScreen';
@@ -66,6 +68,7 @@ type Screen =
   | { kind: 'form' }
   | { kind: 'calendar' }
   | { kind: 'settings' }
+  | { kind: 'arabic' }
   // `birth` is set for birth charts, which offer transits, synastry, saving.
   | {
       kind: 'chart';
@@ -115,6 +118,20 @@ function applySettings(s: Settings) {
   setAspectSettings({ orbs: s.orbs, minor: s.minorAspects });
 }
 
+/** "القمر في منزلة ..." for a chart moment, in the chosen mansion frame. */
+function moonMansionLine(jdUt: number, s: Settings): string {
+  try {
+    const moon = AstroEngine.chart({
+      ...mansionOptions(s.mansions),
+      time: { jdUt },
+      bodies: ['moon'],
+    }).bodies[0];
+    return `القمر في منزلة ${MANSIONS[mansionOf(moon.lon)]}`;
+  } catch {
+    return '';
+  }
+}
+
 function birthChart(data: BirthData, s: Settings): ChartInfo {
   const { city, conversion: c } = data;
   const chart = AstroEngine.chart({
@@ -133,7 +150,8 @@ function birthChart(data: BirthData, s: Settings): ChartInfo {
         : `بالتوقيت المحلي: ${formatDateTime(data.local)}`,
       `بالتوقيت العالمي: ${formatDateTime(c.utc)}`,
       `دائرة البروج: ${zodiacName(s)}`,
-    ],
+      moonMansionLine(chart.jdUt, s),
+    ].filter(Boolean),
     notes: describeConversion(c).slice(1).concat(chart.warnings),
     chart,
   };
@@ -367,6 +385,14 @@ function App(props: Props) {
     );
   } else if (screen.kind === 'calendar') {
     body = <CalendarScreen onBack={back} />;
+  } else if (screen.kind === 'arabic') {
+    body = (
+      <ArabicScreen
+        method={settings.mansions}
+        onMethod={m => changeSettings({ ...settings, mansions: m })}
+        onBack={back}
+      />
+    );
   } else if (screen.kind === 'settings') {
     body = (
       <SettingsScreen
@@ -431,6 +457,11 @@ function App(props: Props) {
             label="التقويم الفلكي"
             kind="secondary"
             onPress={() => push({ kind: 'calendar' })}
+          />
+          <Button
+            label="القسم العربي ومنازل القمر"
+            kind="secondary"
+            onPress={() => push({ kind: 'arabic' })}
           />
           <Button
             label="الإعدادات"

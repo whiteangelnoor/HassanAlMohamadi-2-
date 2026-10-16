@@ -212,3 +212,60 @@ run('settings applied to the engine', () => {
     expect(contacts.map((c: any) => c.star)).toContain('قلب الأسد');
   });
 });
+
+run('lunar mansions against the engine', () => {
+  const {
+    mansionDays,
+    moonTrack,
+    MANSION_WIDTH,
+    MANSIONS,
+    mansionOf,
+    mansionOptions,
+  } = require('../src/astro/mansions');
+  const start = jdFromDate(new Date(Date.UTC(2026, 9, 1)));
+  const days = Array.from({ length: 32 }, (_, i) => start + i);
+
+  test('entry times to within a minute, both methods', () => {
+    for (const method of ['tropical', 'stars']) {
+      const moon = moonTrack(method, start, start + 31);
+      const list = mansionDays(moon, days);
+      expect(list).toHaveLength(31);
+      const opts = mansionOptions(method);
+      let entries = 0;
+      for (const d of list) {
+        for (const e of d.entries) {
+          entries++;
+          const lon = AstroEngine.chart({
+            ...opts,
+            time: { jdUt: e.jd },
+            bodies: ['moon'],
+          }).bodies[0].lon;
+          const boundary = e.mansion * MANSION_WIDTH;
+          expect(sep(lon, boundary)).toBeLessThan(perMinute('moon', e.jd));
+        }
+        const lon0 = AstroEngine.chart({
+          ...opts,
+          time: { jdUt: d.startJd + 1e-4 },
+          bodies: ['moon'],
+        }).bodies[0].lon;
+        expect(mansionOf(lon0)).toBe(d.first);
+      }
+      // The Moon crosses about 28 mansions in 27.3 days.
+      expect(entries).toBeGreaterThanOrEqual(30);
+    }
+  });
+
+  test('with the star method each mansion holds its stars', () => {
+    const { stars } = AstroEngine.fixedStars({
+      ...mansionOptions('stars'),
+      time: { jdUt: start },
+      names: ['Alcyone', 'Aldebaran', 'Regulus', 'Antares'],
+    });
+    expect(stars.map((s: any) => MANSIONS[mansionOf(s.lon)])).toEqual([
+      'الثريا',
+      'الدبران',
+      'الجبهة',
+      'القلب',
+    ]);
+  });
+});

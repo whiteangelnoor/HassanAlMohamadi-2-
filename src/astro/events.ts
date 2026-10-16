@@ -7,7 +7,7 @@
 // direct engine calls in __tests__/events.engine.test.ts). Stations, where the
 // speed itself crosses zero, are refined with direct engine calls instead.
 
-import { AstroEngine, BodyKey } from './engine';
+import { AstroEngine, BodyKey, CommonOptions } from './engine';
 
 export const J1970 = 2440587.5;
 export const jdFromDate = (d: Date) => d.getTime() / 86400000 + J1970;
@@ -32,8 +32,10 @@ export function tracks(
   startJd: number,
   endJd: number,
   step = 1,
+  options: CommonOptions = {},
 ): Record<string, Track> {
   const r = AstroEngine.series({
+    ...options,
     startJdUt: startJd,
     endJdUt: endJd,
     stepDays: step,
@@ -291,4 +293,18 @@ export function returnTime(
     jd -= wrap180(b.lon - lon) / b.lonSpeed;
   }
   return jd;
+}
+
+/** Position on a track at any moment inside it (Hermite interpolation). */
+export function lonAt(t: Track, jd: number): number {
+  const x = (jd - t.start) / t.step;
+  const i = Math.min(Math.max(Math.floor(x), 0), t.lon.length - 2);
+  return hermite(
+    t.lon[i],
+    t.speed[i],
+    t.lon[i + 1],
+    t.speed[i + 1],
+    t.step,
+    x - i,
+  );
 }

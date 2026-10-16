@@ -32,6 +32,7 @@ import { AstroEngine } from '../src/astro/engine';
 import { CalendarScreen } from '../src/ui/CalendarScreen';
 import { PredictiveScreen } from '../src/ui/PredictiveScreen';
 import { TransitScreen } from '../src/ui/TransitScreen';
+import { ArabicScreen } from '../src/ui/ArabicScreen';
 
 const run = env.ASTRO_CLI && env.ASTRO_EPHE ? describe : describe.skip;
 
@@ -82,5 +83,16 @@ run('new screens with the real engine', () => {
     expect(out).toContain('الانتهاء السنوي');
     expect(out).toContain('الطالع الموجّه');
     expect(out).toContain('الفترة الصغرى الآن');
+  }, 60000);
+
+  test('arabic section with the mansion almanac', async () => {
+    const out = await render(
+      <ArabicScreen method="tropical" onMethod={() => {}} onBack={() => {}} />,
+    );
+    expect(out).toContain('القمر الآن في منزلة');
+    expect(out).toContain('روزنامة منازل القمر');
+    expect(out).toContain('بطن الحوت');
+    expect(out).toContain('هـ');
+    expect(out).not.toContain('جارٍ الحساب');
   }, 60000);
 });

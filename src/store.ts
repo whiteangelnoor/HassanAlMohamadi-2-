@@ -45,6 +45,8 @@ export interface Settings {
   /** Orb in degrees per aspect kind (major and minor). */
   orbs: Record<string, number>;
   minorAspects: boolean;
+  /** Lunar mansions: equal from tropical 0° Aries, or tied to the stars. */
+  mansions: 'tropical' | 'stars';
   /** Optional points shown in charts. */
   points: { trueNode: boolean; chiron: boolean; meanLilith: boolean };
 }
@@ -64,6 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
     sesquiquadrate: 2,
   },
   minorAspects: false,
+  mansions: 'tropical',
   points: { trueNode: true, chiron: true, meanLilith: false },
 };
 

@@ -131,6 +131,22 @@ export function SettingsScreen({
         </Card>
       ) : null}
 
+      <Section title="منازل القمر" />
+      <Stepper
+        items={[
+          {
+            label: 'متساوية من أول الحمل',
+            active: settings.mansions === 'tropical',
+            onPress: () => set({ mansions: 'tropical' }),
+          },
+          {
+            label: 'مرتبطة بالنجوم',
+            active: settings.mansions === 'stars',
+            onPress: () => set({ mansions: 'stars' }),
+          },
+        ]}
+      />
+
       <Section title="نظام البيوت الافتراضي" />
       <Card>
         {HOUSE_SYSTEMS.filter(h => h.common).map((h, i, arr) =>
