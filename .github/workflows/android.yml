@@ -68,6 +68,8 @@ jobs:
   apk:
     name: Release APK
     needs: meta
+    # Native build only when native code changed, or to check a pull request.
+    if: needs.meta.outputs.new_apk == 'true' || needs.meta.outputs.publish != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -113,7 +115,11 @@ jobs:
   ota:
     name: Screens update (OTA)
     needs: [meta, js, apk]
-    if: needs.meta.outputs.publish == 'true'
+    # Runs after the APK when one is built, right away when it is skipped.
+    if: >-
+      always() && needs.meta.outputs.publish == 'true' &&
+      needs.js.result == 'success' &&
+      (needs.apk.result == 'success' || needs.apk.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: write
