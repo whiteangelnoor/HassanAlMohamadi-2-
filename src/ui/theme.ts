@@ -69,3 +69,42 @@ export function formatDateTime(t: {
     t.minute,
   )}`;
 }
+
+export const POINT_NAMES: Record<string, string> = {
+  ...Object.fromEntries(BODIES.map(b => [b.key, b.name])),
+  asc: 'الطالع',
+  mc: 'وسط السماء',
+};
+
+export const ASPECT_NAMES: Record<string, string> = {
+  conjunction: 'اقتران',
+  sextile: 'تسديس',
+  square: 'تربيع',
+  trine: 'تثليث',
+  opposition: 'مقابلة',
+};
+
+export const LOT_NAMES: Record<string, string> = {
+  fortune: 'سهم السعادة',
+  spirit: 'سهم الغيب',
+  eros: 'سهم المحبة',
+  necessity: 'سهم الضرورة',
+  courage: 'سهم الشجاعة',
+  victory: 'سهم الظفر',
+  nemesis: 'سهم العقاب',
+  father: 'سهم الأب',
+  mother: 'سهم الأم',
+  // formula terms
+  ...Object.fromEntries(BODIES.map(b => [b.key, b.name])),
+};
+
+export const DIGNITY_NAMES: Record<string, string> = {
+  domicile: 'بيت',
+  exaltation: 'شرف',
+  triplicity: 'مثلثة',
+  term: 'حد',
+  face: 'وجه',
+  detriment: 'وبال',
+  fall: 'هبوط',
+  peregrine: 'غريب',
+};
