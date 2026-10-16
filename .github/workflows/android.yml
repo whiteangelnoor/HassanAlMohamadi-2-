@@ -1,0 +1,65 @@
+name: Android
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    name: Engine smoke test (desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run
+        run: |
+          mkdir -p build && cd build
+          for f in swedate swehouse swejpl swemmoon swemplan sweph swephlib swecl swehel; do
+            gcc -O2 -w -c ../shared/swisseph/$f.c -o $f.o
+          done
+          g++ -std=c++17 -O2 -I../shared/astrocore -I../shared/swisseph \
+            ../tests/full.cpp ../shared/astrocore/AstroCore.cpp *.o -lm -o full
+          ./full ../assets/ephe | tee out.txt
+          grep -q '"ok":true' out.txt
+
+  js:
+    name: TypeScript and Jest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx jest
+
+  apk:
+    name: Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - name: Assemble
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: falak-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
