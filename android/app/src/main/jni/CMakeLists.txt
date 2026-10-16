@@ -19,12 +19,13 @@ set(SWISSEPH_SOURCES
   ${SHARED_DIR}/swisseph/swecl.c
   ${SHARED_DIR}/swisseph/swehel.c
 )
-set_source_files_properties(${SWISSEPH_SOURCES} PROPERTIES
-  LANGUAGE C
-  COMPILE_FLAGS "-w")
+# A separate static library: the app target carries C++-only flags
+# (-std=c++20, -Werror) from React Native that clang rejects for C files.
+add_library(swisseph STATIC ${SWISSEPH_SOURCES})
+target_compile_options(swisseph PRIVATE -w -O2)
+target_include_directories(swisseph PUBLIC ${SHARED_DIR}/swisseph)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-  ${SWISSEPH_SOURCES}
   ${SHARED_DIR}/astrocore/AstroCore.cpp
   ${SHARED_DIR}/NativeAstroEngine.cpp
 )
@@ -32,5 +33,6 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
   ${SHARED_DIR}
   ${SHARED_DIR}/astrocore
-  ${SHARED_DIR}/swisseph
 )
+
+target_link_libraries(${CMAKE_PROJECT_NAME} swisseph)
