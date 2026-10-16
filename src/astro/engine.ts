@@ -151,6 +151,14 @@ export interface FixedStar {
   sign: SignPosition;
 }
 
+export interface Eclipse {
+  kind: 'solar' | 'lunar';
+  type: 'total' | 'annular' | 'hybrid' | 'partial' | 'penumbral' | 'other';
+  jdUt: number; // greatest eclipse
+  lon: number; // Sun (solar) or Moon (lunar) at that moment
+  sign: SignPosition;
+}
+
 // ---------- errors -----------------------------------------------------------
 
 export class AstroEngineError extends Error {
@@ -238,6 +246,14 @@ export const AstroEngine = {
     warnings: string[];
   } {
     return unwrap(Native.calcFixedStars(JSON.stringify(req)));
+  },
+
+  /** Solar and lunar eclipses whose greatest phase falls in the range. */
+  eclipses(req: { startJdUt: number; endJdUt: number } & CommonOptions): {
+    eclipses: Eclipse[];
+    warnings: string[];
+  } {
+    return unwrap(Native.calcEclipses(JSON.stringify(req)));
   },
 
   houseSystems(): { code: string; name: string }[] {

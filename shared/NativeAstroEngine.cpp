@@ -20,6 +20,9 @@ std::string NativeAstroEngine::calcSeries(jsi::Runtime&, std::string req) {
 std::string NativeAstroEngine::calcFixedStars(jsi::Runtime&, std::string req) {
   return astrocore::calcFixedStars(req);
 }
+std::string NativeAstroEngine::calcEclipses(jsi::Runtime&, std::string req) {
+  return astrocore::calcEclipses(req);
+}
 std::string NativeAstroEngine::listHouseSystems(jsi::Runtime&) {
   return astrocore::listHouseSystems();
 }

@@ -1,6 +1,6 @@
 // Desktop bridge for the Jest tests: runs one engine call and prints the JSON
 // reply, so the TypeScript event searches can be checked against the real
-// engine. Usage: engine_cli <ephe-dir> <chart|series|stars> '<request json>'
+// engine. Usage: engine_cli <ephe-dir> <chart|series|stars|eclipses> '<request json>'
 // AGPL-3.0-or-later.
 #include <cstdio>
 #include <string>
@@ -9,7 +9,7 @@
 
 int main(int argc, char** argv) {
   if (argc != 4) {
-    fprintf(stderr, "usage: %s <ephe-dir> <chart|series|stars> <json>\n", argv[0]);
+    fprintf(stderr, "usage: %s <ephe-dir> <chart|series|stars|eclipses> <json>\n", argv[0]);
     return 2;
   }
   using namespace astrocore;
@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
   if (method == "chart") out = calcChart(argv[3]);
   else if (method == "series") out = calcSeries(argv[3]);
   else if (method == "stars") out = calcFixedStars(argv[3]);
+  else if (method == "eclipses") out = calcEclipses(argv[3]);
   else return 2;
   fputs(out.c_str(), stdout);
   return 0;

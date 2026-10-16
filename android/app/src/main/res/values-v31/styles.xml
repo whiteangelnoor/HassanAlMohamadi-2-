@@ -1,0 +1,13 @@
+<resources>
+
+    <!-- Android 12+: the system splash screen uses the app icon on navy. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <item name="android:windowBackground">@color/navy</item>
+        <item name="android:statusBarColor">@color/navy</item>
+        <item name="android:navigationBarColor">@color/navy</item>
+        <item name="android:windowSplashScreenBackground">@color/navy</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/navy</item>
+    </style>
+
+</resources>

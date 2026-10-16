@@ -24,6 +24,7 @@ jest.mock('../specs/NativeAstroEngine', () => {
     calcChart: call('chart'),
     calcSeries: call('series'),
     calcFixedStars: call('stars'),
+    calcEclipses: call('eclipses'),
   };
 });
 

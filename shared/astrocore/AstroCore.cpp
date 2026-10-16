@@ -438,6 +438,72 @@ std::string calcFixedStars(const std::string& requestJson) {
       .dump();
 }
 
+std::string calcEclipses(const std::string& requestJson) {
+  std::lock_guard<std::mutex> lock(gMutex);
+  if (!gInitialized) return errorJson("NOT_INITIALIZED", "call initialize first").dump();
+
+  json req = json::parse(requestJson, nullptr, false);
+  if (req.is_discarded()) return errorJson("BAD_JSON", "invalid request").dump();
+
+  Settings s = readSettings(req);
+  applyGlobalState(s, json());
+  const int32 fz = zodiacFlags(s, false);
+  const double start = req.at("startJdUt").get<double>();
+  const double end = req.at("endJdUt").get<double>();
+  if (end < start || end - start > 366.0 * 50)
+    return errorJson("BAD_RANGE", "invalid range").dump();
+
+  json eclipses = json::array(), warnings = json::array();
+  std::string err;
+  char serr[AS_MAXCH];
+  double tret[10];
+
+  auto addEclipse = [&](const char* kind, int32 rc, int body) -> bool {
+    const double jd = tret[0];
+    std::string type = (rc & SE_ECL_TOTAL)      ? "total"
+                       : (rc & SE_ECL_HYBRID)   ? "hybrid"
+                       : (rc & SE_ECL_ANNULAR)  ? "annular"
+                       : (rc & SE_ECL_PARTIAL)  ? "partial"
+                       : (rc & SE_ECL_PENUMBRAL) ? "penumbral"
+                                                : "other";
+    double xx[6];
+    serr[0] = 0;
+    int32 rf = swe_calc_ut(jd, body, fz, xx, serr);
+    if (rf == ERR) {
+      err = serr;
+      return false;
+    }
+    if (!ephemerisOk(rf, s, warnings, kind, err)) return false;
+    eclipses.push_back({{"kind", kind},
+                        {"type", type},
+                        {"jdUt", jd},
+                        {"lon", xx[0]},
+                        {"sign", signOf(xx[0])}});
+    return true;
+  };
+
+  // Solar eclipses, by time of greatest eclipse.
+  for (double t = start;;) {
+    serr[0] = 0;
+    int32 rc = swe_sol_eclipse_when_glob(t, SEFLG_SWIEPH, 0, tret, 0, serr);
+    if (rc == ERR) return errorJson("CALC", std::string("solar eclipse: ") + serr).dump();
+    if (tret[0] > end) break;
+    if (!addEclipse("solar", rc, SE_SUN)) return errorJson("EPHEMERIS_FILES", err).dump();
+    t = tret[0] + 1;
+  }
+  // Lunar eclipses.
+  for (double t = start;;) {
+    serr[0] = 0;
+    int32 rc = swe_lun_eclipse_when(t, SEFLG_SWIEPH, 0, tret, 0, serr);
+    if (rc == ERR) return errorJson("CALC", std::string("lunar eclipse: ") + serr).dump();
+    if (tret[0] > end) break;
+    if (!addEclipse("lunar", rc, SE_MOON)) return errorJson("EPHEMERIS_FILES", err).dump();
+    t = tret[0] + 1;
+  }
+
+  return json{{"ok", true}, {"eclipses", eclipses}, {"warnings", warnings}}.dump();
+}
+
 std::string listHouseSystems() {
   std::lock_guard<std::mutex> lock(gMutex);
   json arr = json::array();

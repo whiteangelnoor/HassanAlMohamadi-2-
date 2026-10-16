@@ -24,6 +24,15 @@ const PHASE_NAMES = {
   lastQuarter: 'التربيع الأخير',
 };
 
+const ECLIPSE_TYPES: Record<string, string> = {
+  total: 'كلّي',
+  annular: 'حلقي',
+  hybrid: 'هجين',
+  partial: 'جزئي',
+  penumbral: 'شبه ظلّي',
+  other: '',
+};
+
 function describe(e: CalendarEvent): {
   name: string;
   detail: string;
@@ -55,6 +64,14 @@ function describe(e: CalendarEvent): {
             ? `${POINT_NAMES[e.body]} يبدأ التراجع`
             : `${POINT_NAMES[e.body]} يستقيم`,
         detail: `${time} · ${formatLongitude(e.lon)}`,
+        strong: true,
+      };
+    case 'eclipse':
+      return {
+        name: `${e.eclipse.kind === 'solar' ? 'كسوف' : 'خسوف'} ${
+          ECLIPSE_TYPES[e.eclipse.type]
+        }`,
+        detail: `${time} · ${formatLongitude(e.eclipse.lon)}`,
         strong: true,
       };
     case 'voidStart':
@@ -148,8 +165,9 @@ export function CalendarScreen({ onBack }: { onBack: () => void }) {
       ))}
 
       <Hint>
-        الأوقات بتوقيت هاتفك. القمر خالٍ من المسار من آخر جانب دقيق يصنعه مع
-        كوكب (من الشمس إلى بلوتو) قبل أن يغادر برجه، حتى دخوله البرج التالي.
+        الأوقات بتوقيت هاتفك، ووقت الكسوف والخسوف هو لحظة الذروة. القمر خالٍ من
+        المسار من آخر جانب دقيق يصنعه مع كوكب (من الشمس إلى بلوتو) قبل أن يغادر
+        برجه، حتى دخوله البرج التالي.
       </Hint>
       <Button label="رجوع" kind="secondary" onPress={onBack} />
     </ScrollView>

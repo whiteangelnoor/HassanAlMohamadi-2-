@@ -7,6 +7,7 @@ export interface Spec extends TurboModule {
   readonly calcChart: (requestJson: string) => string;
   readonly calcSeries: (requestJson: string) => string;
   readonly calcFixedStars: (requestJson: string) => string;
+  readonly calcEclipses: (requestJson: string) => string;
   readonly listHouseSystems: () => string;
   readonly listAyanamsas: () => string;
   readonly shutdown: () => void;

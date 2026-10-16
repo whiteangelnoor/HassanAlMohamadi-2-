@@ -30,6 +30,11 @@ std::string calcSeries(const std::string& requestJson);
 // Fixed stars by name, e.g. ["Regulus","Spica","Algol"].
 std::string calcFixedStars(const std::string& requestJson);
 
+// Solar and lunar eclipses with greatest eclipse in [startJdUt, endJdUt]:
+// {"startJdUt":..,"endJdUt":..} -> {"ok":true,"eclipses":[{"kind":"solar",
+// "type":"total|annular|hybrid|partial|penumbral","jdUt":..,"lon":..,"sign":..}]}
+std::string calcEclipses(const std::string& requestJson);
+
 // Static catalogues for settings screens.
 std::string listHouseSystems();
 std::string listAyanamsas();

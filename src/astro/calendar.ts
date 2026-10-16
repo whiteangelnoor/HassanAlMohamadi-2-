@@ -4,7 +4,7 @@
 // Void of course: from the Moon's last exact Ptolemaic aspect to any planet
 // (Sun to Pluto) while in a sign, until it enters the next sign.
 
-import { BodyKey } from './engine';
+import { AstroEngine, BodyKey, Eclipse } from './engine';
 import {
   aspectHits,
   AspectKind,
@@ -33,6 +33,7 @@ export type CalendarEvent =
   | { type: 'phase'; jd: number; phase: Phase }
   | ({ type: 'ingress' } & Ingress)
   | ({ type: 'station' } & Station)
+  | { type: 'eclipse'; jd: number; eclipse: Eclipse }
   | {
       type: 'voidStart';
       jd: number;
@@ -64,6 +65,11 @@ export function calendarEvents(
         events.push({ type: 'station', ...st });
       }
     }
+  }
+
+  for (const e of AstroEngine.eclipses({ startJdUt: startJd, endJdUt: endJd })
+    .eclipses) {
+    events.push({ type: 'eclipse', jd: e.jdUt, eclipse: e });
   }
 
   // Void of course Moon.

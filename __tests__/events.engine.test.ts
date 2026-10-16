@@ -22,6 +22,7 @@ jest.mock('../specs/NativeAstroEngine', () => {
     calcChart: call('chart'),
     calcSeries: call('series'),
     calcFixedStars: call('stars'),
+    calcEclipses: call('eclipses'),
   };
 });
 
@@ -160,5 +161,25 @@ run('calendar and transits against the engine', () => {
     const sunHits = hits.filter((h: any) => h.a === 'sun' && h.b === 'sun');
     // The Sun aspects its own natal place 8 times a year (0, 2x60, 2x90, 2x120, 180).
     expect(sunHits.length).toBe(8);
+  });
+});
+
+run('eclipses from the engine', () => {
+  test('the four eclipses of 2026', () => {
+    const start = jdFromDate(new Date(Date.UTC(2026, 0, 1)));
+    const { eclipses } = AstroEngine.eclipses({
+      startJdUt: start,
+      endJdUt: start + 365,
+    });
+    const summary = eclipses.map(e => {
+      const d = new Date((e.jdUt - 2440587.5) * 86400000);
+      return `${e.kind} ${e.type} ${d.toISOString().slice(0, 10)}`;
+    });
+    expect(summary).toEqual([
+      'solar annular 2026-02-17',
+      'solar total 2026-08-12',
+      'lunar total 2026-03-03',
+      'lunar partial 2026-08-28',
+    ]);
   });
 });

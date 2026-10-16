@@ -16,6 +16,7 @@ class NativeAstroEngine : public NativeAstroEngineCxxSpec<NativeAstroEngine> {
   std::string calcChart(jsi::Runtime& rt, std::string requestJson);
   std::string calcSeries(jsi::Runtime& rt, std::string requestJson);
   std::string calcFixedStars(jsi::Runtime& rt, std::string requestJson);
+  std::string calcEclipses(jsi::Runtime& rt, std::string requestJson);
   std::string listHouseSystems(jsi::Runtime& rt);
   std::string listAyanamsas(jsi::Runtime& rt);
   void shutdown(jsi::Runtime& rt);
