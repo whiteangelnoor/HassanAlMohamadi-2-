@@ -87,7 +87,13 @@ run('new screens with the real engine', () => {
 
   test('arabic section with the mansion almanac', async () => {
     const out = await render(
-      <ArabicScreen method="tropical" onMethod={() => {}} onBack={() => {}} />,
+      <ArabicScreen
+        method="tropical"
+        onMethod={() => {}}
+        hijri={{ choice: 'tehran', offset: 1 }}
+        onHijri={() => {}}
+        onBack={() => {}}
+      />,
     );
     expect(out).toContain('القمر الآن في منزلة');
     expect(out).toContain('روزنامة منازل القمر');

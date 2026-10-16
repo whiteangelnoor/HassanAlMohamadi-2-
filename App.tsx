@@ -178,7 +178,8 @@ function skyNow(at: Date, s: Settings): ChartInfo {
       'فوق بغداد',
       `بالتوقيت العالمي: ${formatDateTime(utc)}`,
       `دائرة البروج: ${zodiacName(s)}`,
-    ],
+      moonMansionLine(chart.jdUt, s),
+    ].filter(Boolean),
     notes: chart.warnings,
     chart,
   };
@@ -390,6 +391,8 @@ function App(props: Props) {
       <ArabicScreen
         method={settings.mansions}
         onMethod={m => changeSettings({ ...settings, mansions: m })}
+        hijri={settings.hijri}
+        onHijri={h => changeSettings({ ...settings, hijri: h })}
         onBack={back}
       />
     );

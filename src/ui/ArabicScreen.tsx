@@ -21,7 +21,12 @@ import {
   MANSIONS,
   moonTrack,
 } from '../astro/mansions';
-import { HIJRI_MONTHS, toHijri } from '../time/hijri';
+import { HIJRI_MONTHS } from '../time/hijri';
+import {
+  HIJRI_CHOICES,
+  hijriForMonth,
+  HijriSetting,
+} from '../time/hijriProvider';
 import { formatDay, formatJd, formatTime, MONTHS } from './dates';
 import { Card, Hint, Row, Section, Stepper } from './list';
 import { DateBar } from './DatePicker';
@@ -56,10 +61,14 @@ function mansionRange(i: number): string {
 export function ArabicScreen({
   method,
   onMethod,
+  hijri,
+  onHijri,
   onBack,
 }: {
   method: MansionMethod;
   onMethod: (m: MansionMethod) => void;
+  hijri: HijriSetting;
+  onHijri: (h: HijriSetting) => void;
   onBack: () => void;
 }) {
   const { width } = useWindowDimensions();
@@ -107,6 +116,10 @@ export function ArabicScreen({
 
   const firstWeekday = (new Date(ym.y, ym.m, 1).getDay() + 1) % 7; // Saturday = 0
   const cell = Math.floor((width - 40) / 7);
+  const toHijri = useMemo(
+    () => hijriForMonth(hijri, ym.y, ym.m + 1),
+    [hijri, ym],
+  );
   const hijriFirst = toHijri(ym.y, ym.m + 1, 1);
   const hijriLast = toHijri(ym.y, ym.m + 1, count);
   const hijriTitle =
@@ -158,6 +171,44 @@ export function ArabicScreen({
           />
         </Card>
       ) : null}
+
+      <Section title="التقويم الهجري" />
+      <Stepper
+        items={HIJRI_CHOICES.map(c => ({
+          label: c.label,
+          active: hijri.choice === c.key,
+          onPress: () => onHijri({ ...hijri, choice: c.key }),
+        }))}
+      />
+      <View style={styles.offsetRow}>
+        <Text style={styles.offsetLabel}>تعديل التاريخ الهجري</Text>
+        <View style={styles.offsetControls}>
+          <Pressable
+            onPress={() =>
+              onHijri({ ...hijri, offset: Math.max(-2, hijri.offset - 1) })
+            }
+            style={styles.offsetBtn}
+            hitSlop={6}
+          >
+            <Text style={styles.offsetBtnText}>−</Text>
+          </Pressable>
+          <Text style={styles.offsetValue}>
+            {hijri.offset === 0
+              ? 'بلا تعديل'
+              : `${hijri.offset > 0 ? '+' : '−'}${Math.abs(hijri.offset)} يوم`}
+          </Text>
+          <Pressable
+            onPress={() =>
+              onHijri({ ...hijri, offset: Math.min(2, hijri.offset + 1) })
+            }
+            style={styles.offsetBtn}
+            hitSlop={6}
+          >
+            <Text style={styles.offsetBtnText}>+</Text>
+          </Pressable>
+        </View>
+      </View>
+      <Hint>{HIJRI_CHOICES.find(c => c.key === hijri.choice)!.name}</Hint>
 
       <Section title="روزنامة منازل القمر" />
       <Text style={styles.month}>{`${MONTHS[ym.m]} ${ym.y}`}</Text>
@@ -262,8 +313,8 @@ export function ArabicScreen({
         {method === 'stars'
           ? 'المنازل هنا مقيسة من أول الحمل النجمي (لاهيري)، فتبقى كل منزلة مع نجومها: الثريا في منزلة الثريا، والدبران في الدبران، وقلب الأسد في الجبهة.'
           : 'المنازل هنا مقيسة من أول الحمل الاستوائي، كل منزلة 12° 51′، كما في كتب الأحكام المتأخرة.'}{' '}
-        الأوقات بتوقيت هاتفك. التاريخ الهجري بتقويم أم القرى، وقد يختلف يوماً عن
-        رؤية الهلال في بلدك.
+        الأوقات بتوقيت هاتفك. التاريخ الهجري حسب التقويم المختار أعلاه، ويمكن
+        تعديله بيومين زيادة أو نقصاً ليطابق إعلان بلدك.
       </Hint>
 
       <Button label="رجوع" kind="secondary" onPress={onBack} />
@@ -336,5 +387,33 @@ const styles = StyleSheet.create({
     fontSize: 7,
     marginTop: 'auto',
     marginBottom: 2,
+  },
+  offsetRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  offsetLabel: { fontFamily: FONT, color: colors.text, fontSize: 15 },
+  offsetControls: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+  },
+  offsetBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderColor: colors.line,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offsetBtnText: { color: colors.gold, fontSize: 18 },
+  offsetValue: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 14,
+    minWidth: 70,
+    textAlign: 'center',
   },
 });

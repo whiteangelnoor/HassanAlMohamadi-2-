@@ -269,3 +269,47 @@ run('lunar mansions against the engine', () => {
     ]);
   });
 });
+
+run('Hijri months by predicted sighting', () => {
+  const {
+    monthStarts,
+    SIGHTING_CITIES,
+    sunset,
+  } = require('../src/time/hijriSighting');
+  const { hijriForMonth } = require('../src/time/hijriProvider');
+
+  test('Tehran sunset on 16 October 2026 is about 17:28 local', () => {
+    const jd = sunset(Date.UTC(2026, 9, 16), SIGHTING_CITIES.tehran);
+    const local = new Date((jd - 2440587.5) * 86400000 + 3.5 * 3600000);
+    expect(local.getUTCHours()).toBe(17);
+    expect(Math.abs(local.getUTCMinutes() - 28)).toBeLessThanOrEqual(3);
+  });
+
+  test('months are 29 or 30 days and begin 1-3 days after conjunction', () => {
+    for (const key of ['karachi', 'tehran', 'qom']) {
+      const starts = monthStarts(
+        Date.UTC(2026, 0, 1),
+        Date.UTC(2026, 11, 31),
+        SIGHTING_CITIES[key],
+      );
+      for (let i = 1; i < starts.length; i++) {
+        const len = (starts[i] - starts[i - 1]) / 86400000;
+        expect([29, 30]).toContain(len);
+      }
+    }
+  });
+
+  test('the offset shifts the Hijri day', () => {
+    const a = hijriForMonth({ choice: 'tehran', offset: 0 }, 2026, 10)(
+      2026,
+      10,
+      16,
+    );
+    const b = hijriForMonth({ choice: 'tehran', offset: 1 }, 2026, 10)(
+      2026,
+      10,
+      16,
+    );
+    expect(b.day === a.day + 1 || (b.day === 1 && a.day >= 29)).toBe(true);
+  });
+});

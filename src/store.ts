@@ -47,6 +47,8 @@ export interface Settings {
   minorAspects: boolean;
   /** Lunar mansions: equal from tropical 0° Aries, or tied to the stars. */
   mansions: 'tropical' | 'stars';
+  /** Hijri calendar and a manual correction in days. */
+  hijri: { choice: 'umalqura' | 'karachi' | 'tehran' | 'qom'; offset: number };
   /** Optional points shown in charts. */
   points: { trueNode: boolean; chiron: boolean; meanLilith: boolean };
 }
@@ -67,6 +69,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   minorAspects: false,
   mansions: 'tropical',
+  hijri: { choice: 'umalqura', offset: 0 },
   points: { trueNode: true, chiron: true, meanLilith: false },
 };
 
@@ -78,6 +81,7 @@ export function loadSettings(): Settings {
     zodiac: { ...DEFAULT_SETTINGS.zodiac, ...s.zodiac },
     orbs: { ...DEFAULT_SETTINGS.orbs, ...s.orbs },
     points: { ...DEFAULT_SETTINGS.points, ...s.points },
+    hijri: { ...DEFAULT_SETTINGS.hijri, ...s.hijri },
   };
 }
 
