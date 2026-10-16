@@ -77,3 +77,12 @@ test('cosmic number: حسن is 118, 1+1+8 = 10, 1+0 = 1', () => {
   expect(cosmicNumber(99)).toBe(9);
   expect(cosmicNumber(0)).toBe(0);
 });
+
+test('every lunar mansion has its traits', () => {
+  const { MANSIONS } = require('../src/astro/mansions');
+  const { MANSION_TRAITS } = require('../src/astro/mansionTraits');
+  expect(MANSION_TRAITS).toHaveLength(MANSIONS.length);
+  for (const t of MANSION_TRAITS) {
+    expect(t.good || t.avoid).toBeTruthy();
+  }
+});

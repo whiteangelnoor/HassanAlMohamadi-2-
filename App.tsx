@@ -23,6 +23,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AstroEngine } from './src/astro/engine';
 import { setAspectSettings } from './src/astro/traditional';
 import { hourReminders } from './src/spiritual/reminders';
+import { MANSION_TRAITS } from './src/astro/mansionTraits';
 import { BUILD } from './src/buildInfo';
 import { cityLabel } from './src/geo/cities';
 import {
@@ -136,7 +137,8 @@ function moonMansionLine(jdUt: number, s: Settings): string {
       time: { jdUt },
       bodies: ['moon'],
     }).bodies[0];
-    return `القمر في منزلة ${MANSIONS[mansionOf(moon.lon)]}`;
+    const i = mansionOf(moon.lon);
+    return `القمر في منزلة ${MANSIONS[i]} (${MANSION_TRAITS[i].nature})`;
   } catch {
     return '';
   }

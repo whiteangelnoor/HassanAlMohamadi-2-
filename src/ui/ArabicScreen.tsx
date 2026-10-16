@@ -21,6 +21,7 @@ import {
   MANSIONS,
   moonTrack,
 } from '../astro/mansions';
+import { MANSION_TRAITS, mansionTraitsLine } from '../astro/mansionTraits';
 import { HIJRI_MONTHS } from '../time/hijri';
 import {
   HIJRI_CHOICES,
@@ -77,6 +78,7 @@ export function ArabicScreen({
   const [days, setDays] = useState<MansionDay[] | null>(null);
   const [selected, setSelected] = useState<number | null>(now.getDate());
   const [error, setError] = useState<string | null>(null);
+  const [openMansion, setOpenMansion] = useState<number | null>(null);
   // Tapping a day scrolls back up to its details.
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 
@@ -190,12 +192,14 @@ export function ArabicScreen({
               <Row
                 name="منزلة القمر عند بداية اليوم"
                 value={<Text style={styles.gold}>{MANSIONS[sel.first]}</Text>}
+                detail={mansionTraitsLine(sel.first)}
               />
               {sel.entries.map(e => (
                 <Row
                   key={e.jd}
                   name={`يدخل ${MANSIONS[e.mansion]}`}
                   value={formatTime(dateFromJd(e.jd))}
+                  detail={mansionTraitsLine(e.mansion)}
                 />
               ))}
               {selected === today && current ? (
@@ -315,14 +319,35 @@ export function ArabicScreen({
       </Hint>
 
       <Section title="المنازل الثماني والعشرون" />
+      <Hint>اضغط على أي منزلة لترى ما تصلح له.</Hint>
       <Card>
         {MANSIONS.map((m, i) => (
-          <Row
+          <Pressable
             key={m}
-            last={i === 27}
-            name={`${i + 1}. ${m}`}
-            detail={mansionRange(i) + (method === 'stars' ? ' (نجمية)' : '')}
-          />
+            onPress={() => setOpenMansion(o => (o === i ? null : i))}
+            accessibilityRole="button"
+          >
+            <Row
+              last={i === 27 || openMansion === i}
+              name={`${i + 1}. ${m}`}
+              value={MANSION_TRAITS[i].nature}
+              detail={mansionRange(i) + (method === 'stars' ? ' (نجمية)' : '')}
+            />
+            {openMansion === i ? (
+              <View style={[styles.traits, i !== 27 && styles.traitsLine]}>
+                {MANSION_TRAITS[i].good ? (
+                  <Text style={styles.traitsText}>
+                    {`تصلح لـ: ${MANSION_TRAITS[i].good}`}
+                  </Text>
+                ) : null}
+                {MANSION_TRAITS[i].avoid ? (
+                  <Text style={styles.traitsText}>
+                    {`يُكره فيها: ${MANSION_TRAITS[i].avoid}`}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+          </Pressable>
         ))}
       </Card>
       <Hint>
@@ -403,6 +428,18 @@ const styles = StyleSheet.create({
     fontSize: 7,
     marginTop: 'auto',
     marginBottom: 2,
+  },
+  traits: { paddingBottom: 12, gap: 4 },
+  traitsLine: {
+    borderBottomColor: colors.line,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  traitsText: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'right',
   },
   offsetRow: {
     flexDirection: 'row-reverse',
