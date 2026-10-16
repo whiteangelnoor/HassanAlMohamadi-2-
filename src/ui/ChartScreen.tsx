@@ -38,9 +38,8 @@ export interface ChartInfo {
   chart: ChartResult;
 }
 
-type Tab = 'wheel' | 'planets' | 'aspects' | 'lots' | 'dignities';
+type Tab = 'planets' | 'aspects' | 'lots' | 'dignities';
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'wheel', label: 'العجلة' },
   { key: 'planets', label: 'الكواكب' },
   { key: 'aspects', label: 'الجوانب' },
   { key: 'lots', label: 'السهام' },
@@ -54,7 +53,7 @@ export function ChartScreen({
   info: ChartInfo;
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>('wheel');
+  const [tab, setTab] = useState<Tab>('planets');
   const { chart } = info;
   const day = chart.houses ? isDayChart(chart) : null;
 
@@ -77,6 +76,8 @@ export function ChartScreen({
         </Text>
       ))}
 
+      <Wheel chart={chart} />
+
       <View style={styles.tabs}>
         {TABS.map(t => (
           <Pressable
@@ -95,7 +96,6 @@ export function ChartScreen({
         ))}
       </View>
 
-      {tab === 'wheel' ? <Wheel chart={chart} /> : null}
       {tab === 'planets' ? <Planets chart={chart} /> : null}
       {tab === 'aspects' ? <Aspects chart={chart} /> : null}
       {tab === 'lots' ? <Lots chart={chart} /> : null}
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center' },
   tabActive: { backgroundColor: colors.gold },
-  tabText: { color: colors.muted, fontSize: 13 },
+  tabText: { color: colors.muted, fontSize: 14 },
   tabTextActive: { color: colors.goldText, fontWeight: '600' },
   card: {
     backgroundColor: colors.navyRaised,

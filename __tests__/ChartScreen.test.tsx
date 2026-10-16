@@ -32,13 +32,12 @@ test('every tab renders for a real chart', async () => {
       tabs[i].props.onPress();
     });
 
-  await press(1);
   expect(text()).toContain('الطالع');
-  await press(2);
+  await press(1);
   expect(text()).toMatch(/مقترب|منفصل/);
-  await press(3);
+  await press(2);
   expect(text()).toContain('سهم السعادة');
-  await press(4);
+  await press(3);
   expect(text()).toContain('صاحب الحد');
 });
 
