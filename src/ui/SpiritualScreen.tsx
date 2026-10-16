@@ -1,6 +1,13 @@
 // The spiritual section: a grid of cards, three to a row. AGPL-3.0-or-later.
 
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { Hint } from './list';
 import { colors, FONT } from './theme';
@@ -23,6 +30,9 @@ export function SpiritualScreen({
   onOpen: (page: SpiritualPage) => void;
   onBack: () => void;
 }) {
+  // Three to a row: the screen width less the page padding and two gaps.
+  const { width } = useWindowDimensions();
+  const cardWidth = Math.floor((width - 2 * PAD - 2 * GAP) / 3);
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Header title="القسم الروحاني" onBack={onBack} />
@@ -34,6 +44,7 @@ export function SpiritualScreen({
             onPress={() => c.key && onOpen(c.key)}
             style={({ pressed }) => [
               styles.card,
+              { width: cardWidth },
               !c.key && styles.soon,
               pressed && styles.pressed,
             ]}
@@ -49,11 +60,13 @@ export function SpiritualScreen({
   );
 }
 
+const PAD = 20;
+const GAP = 10;
+
 const styles = StyleSheet.create({
-  content: { padding: 20, gap: 16 },
-  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10 },
+  content: { padding: PAD, gap: 16 },
+  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: GAP },
   card: {
-    width: '31.5%',
     aspectRatio: 0.9,
     backgroundColor: colors.navyRaised,
     borderColor: colors.gold,
