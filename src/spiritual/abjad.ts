@@ -1,66 +1,84 @@
-// The spiritual sign (البرج الروحاني) by abjad: the values of the person's
-// name and the mother's name are added, twelve is taken away as often as it
-// goes, and the remainder counts the signs from Aries (0 = Pisces).
-// Eastern (Mashriqi) abjad values. AGPL-3.0-or-later.
+// Abjad (حساب الجُمَّل): letter values, the spiritual sign, and the nature
+// (طبع) of a name from its letters. AGPL-3.0-or-later.
+//
+// Values: Eastern (Mashriqi) or Western (Maghribi) abjad.
+// Spiritual sign: the values of the name and the mother's name are added,
+// twelve is taken away as often as it goes, and the remainder counts the
+// signs from Aries (0 = Pisces).
+// Nature of a name: the letters in abjad order are dealt in fours to fire,
+// earth, air and water, the first four with strength 7, the next four 6, and
+// so on down to 1 (أ ب ج د = 7, ه و ز ح = 6, ... ذ ض ظ غ = 1). The strengths
+// of the name's letters are summed per element; the highest sum is the
+// name's nature (equal highest sums: a mixed nature).
 
-const VALUES: Record<string, number> = {
-  ا: 1,
-  أ: 1,
-  إ: 1,
-  آ: 1,
-  ء: 1,
-  ٱ: 1,
-  ب: 2,
-  ج: 3,
-  د: 4,
-  ه: 5,
-  و: 6,
-  ؤ: 6,
-  ز: 7,
-  ح: 8,
-  ط: 9,
-  ي: 10,
-  ى: 10,
-  ئ: 10,
-  ك: 20,
-  ل: 30,
-  م: 40,
-  ن: 50,
-  س: 60,
-  ع: 70,
-  ف: 80,
-  ص: 90,
-  ق: 100,
-  ر: 200,
-  ش: 300,
-  ت: 400,
-  ث: 500,
-  خ: 600,
-  ذ: 700,
-  ض: 800,
-  ظ: 900,
-  غ: 1000,
+export type AbjadSystem = 'mashriqi' | 'maghribi';
+export type Element = 'fire' | 'earth' | 'air' | 'water';
+export const ELEMENTS: Element[] = ['fire', 'earth', 'air', 'water'];
+export const ELEMENT_NAMES: Record<Element, string> = {
+  fire: 'ناري',
+  earth: 'ترابي',
+  air: 'هوائي',
+  water: 'مائي',
+};
+
+// The 28 letters in abjad order for each system, with their values.
+const ORDER: Record<AbjadSystem, string> = {
+  mashriqi: 'ابجدهوزحطيكلمنسعفصقرشتثخذضظغ',
+  maghribi: 'ابجدهوزحطيكلمنصعفضقرستثخذظغش',
+};
+const VALUES = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300,
+  400, 500, 600, 700, 800, 900, 1000,
+];
+
+// Letter forms reduced to their base letter.
+const BASE: Record<string, string> = {
+  أ: 'ا',
+  إ: 'ا',
+  آ: 'ا',
+  ء: 'ا',
+  ٱ: 'ا',
+  ى: 'ي',
+  ئ: 'ي',
+  ؤ: 'و',
 };
 
 export interface AbjadOptions {
+  system: AbjadSystem;
   /** Taa marbuta (ة) counted as haa (5) or as taa (400). */
   taaMarbuta: 5 | 400;
 }
 
 export interface AbjadLetter {
-  letter: string;
+  letter: string; // as written
   value: number;
+  element: Element;
+  strength: number; // 7..1
 }
 
-/** Letter values of a name; diacritics, spaces and tatweel are ignored. */
+function base(ch: string, o: AbjadOptions): string | null {
+  if (ch === 'ة') {
+    return o.taaMarbuta === 5 ? 'ه' : 'ت';
+  }
+  const b = BASE[ch] ?? ch;
+  return ORDER[o.system].includes(b) ? b : null;
+}
+
+/** Letters of a name with value, element and strength; marks ignored. */
 export function abjadLetters(name: string, o: AbjadOptions): AbjadLetter[] {
   const out: AbjadLetter[] = [];
   for (const ch of name) {
-    if (ch === 'ة') {
-      out.push({ letter: ch, value: o.taaMarbuta });
-    } else if (VALUES[ch] !== undefined) {
-      out.push({ letter: ch, value: VALUES[ch] });
+    const b = base(ch, o);
+    if (b === null) {
+      continue;
     }
+    const i = ORDER[o.system].indexOf(b);
+    out.push({
+      letter: ch,
+      value: VALUES[i],
+      element: ELEMENTS[i % 4],
+      strength: 7 - Math.floor(i / 4),
+    });
   }
   return out;
 }
@@ -73,8 +91,42 @@ export function abjadValue(name: string, o: AbjadOptions): number {
 export function unknownLetters(name: string): string[] {
   const ignorable = /[\sً-ْٰـ]/;
   return [...name].filter(
-    ch => ch !== 'ة' && VALUES[ch] === undefined && !ignorable.test(ch),
+    ch =>
+      !ignorable.test(ch) &&
+      base(ch, { system: 'mashriqi', taaMarbuta: 5 }) === null,
   );
+}
+
+export interface NameNature {
+  totals: Record<Element, number>;
+  /** The winning element(s); more than one when the highest sums are equal. */
+  winners: Element[];
+  letters: AbjadLetter[];
+}
+
+export function nameNature(name: string, o: AbjadOptions): NameNature {
+  const letters = abjadLetters(name, o);
+  const totals: Record<Element, number> = {
+    fire: 0,
+    earth: 0,
+    air: 0,
+    water: 0,
+  };
+  for (const l of letters) {
+    totals[l.element] += l.strength;
+  }
+  const max = Math.max(...ELEMENTS.map(e => totals[e]));
+  const winners = max > 0 ? ELEMENTS.filter(e => totals[e] === max) : [];
+  return { totals, winners, letters };
+}
+
+export function natureLabel(n: NameNature): string {
+  if (n.winners.length === 0) {
+    return '—';
+  }
+  return n.winners.length === 1
+    ? ELEMENT_NAMES[n.winners[0]]
+    : `ممتزج (${n.winners.map(w => ELEMENT_NAMES[w]).join(' و')})`;
 }
 
 export interface SpiritualSign {
