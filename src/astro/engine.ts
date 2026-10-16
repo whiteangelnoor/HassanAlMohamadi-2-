@@ -6,10 +6,26 @@ import Native from '../../specs/NativeAstroEngine';
 // ---------- request types ----------------------------------------------------
 
 export type BodyKey =
-  | 'sun' | 'moon' | 'mercury' | 'venus' | 'mars' | 'jupiter' | 'saturn'
-  | 'uranus' | 'neptune' | 'pluto'
-  | 'meanNode' | 'trueNode' | 'meanLilith' | 'oscLilith'
-  | 'chiron' | 'pholus' | 'ceres' | 'pallas' | 'juno' | 'vesta'
+  | 'sun'
+  | 'moon'
+  | 'mercury'
+  | 'venus'
+  | 'mars'
+  | 'jupiter'
+  | 'saturn'
+  | 'uranus'
+  | 'neptune'
+  | 'pluto'
+  | 'meanNode'
+  | 'trueNode'
+  | 'meanLilith'
+  | 'oscLilith'
+  | 'chiron'
+  | 'pholus'
+  | 'ceres'
+  | 'pallas'
+  | 'juno'
+  | 'vesta'
   | `ast:${number}`;
 
 /** Swiss Ephemeris house-system codes, e.g. 'P' Placidus, 'K' Koch, 'W' Whole Sign. */
@@ -25,7 +41,7 @@ export interface UtcTime {
 }
 
 /** Either civil UTC (recommended) or a Julian Day in UT1. */
-export type TimeInput = {utc: UtcTime} | {jdUt: number};
+export type TimeInput = { utc: UtcTime } | { jdUt: number };
 
 export interface GeoLocation {
   lat: number; // north positive
@@ -115,14 +131,14 @@ export interface ChartResult {
   nutationLon: number;
   bodies: BodyPosition[];
   houses?: Houses;
-  ayanamsa?: {id: number; name: string; value: number};
+  ayanamsa?: { id: number; name: string; value: number };
   warnings: string[];
 }
 
 export interface SeriesResult {
   startJdUt: number;
   stepDays: number;
-  series: Record<string, {lon: number[]; lonSpeed: number[]}>;
+  series: Record<string, { lon: number[]; lonSpeed: number[] }>;
   warnings: string[];
 }
 
@@ -147,9 +163,40 @@ export class AstroEngineError extends Error {
 function unwrap<T>(raw: string): T {
   const parsed = JSON.parse(raw);
   if (!parsed.ok) {
-    throw new AstroEngineError(parsed.error?.code ?? 'UNKNOWN', parsed.error?.message ?? '');
+    throw new AstroEngineError(
+      parsed.error?.code ?? 'UNKNOWN',
+      parsed.error?.message ?? '',
+    );
   }
   return parsed as T;
+}
+
+// ---------- house fallback -----------------------------------------------------
+
+/**
+ * Inside the polar circles Placidus, Koch and similar systems have no
+ * solution; the engine then returns Porphyry cusps but still places the
+ * planets with the requested system's formula. Porphyry cusps lie on the
+ * ecliptic, so the matching house position follows from the longitude alone.
+ */
+export function withConsistentHouses(chart: ChartResult): ChartResult {
+  const h = chart.houses;
+  if (!h || !h.fallbackUsed || h.cusps.length !== 12) {
+    return chart;
+  }
+  const norm = (x: number) => ((x % 360) + 360) % 360;
+  const bodies = chart.bodies.map(b => {
+    for (let i = 0; i < 12; i++) {
+      const start = h.cusps[i];
+      const width = norm(h.cusps[(i + 1) % 12] - start);
+      const into = norm(b.lon - start);
+      if (into < width) {
+        return { ...b, housePosition: i + 1 + into / width };
+      }
+    }
+    return b;
+  });
+  return { ...chart, bodies };
 }
 
 // ---------- public API -------------------------------------------------------
@@ -163,32 +210,46 @@ export interface InitResult {
 export const AstroEngine = {
   /** Must be called once with a real filesystem directory holding the .se1 files. */
   initialize(ephePath: string): InitResult {
-    const r = unwrap<InitResult>(Native.initialize(JSON.stringify({ephePath})));
+    const r = unwrap<InitResult>(
+      Native.initialize(JSON.stringify({ ephePath })),
+    );
     if (!r.filesOk) {
-      throw new AstroEngineError('EPHEMERIS_FILES', `ephemeris files not readable at ${ephePath}`);
+      throw new AstroEngineError(
+        'EPHEMERIS_FILES',
+        `ephemeris files not readable at ${ephePath}`,
+      );
     }
     return r;
   },
 
   chart(req: ChartRequest): ChartResult {
-    return unwrap<ChartResult>(Native.calcChart(JSON.stringify(req)));
+    return withConsistentHouses(
+      unwrap<ChartResult>(Native.calcChart(JSON.stringify(req))),
+    );
   },
 
   series(req: SeriesRequest): SeriesResult {
     return unwrap<SeriesResult>(Native.calcSeries(JSON.stringify(req)));
   },
 
-  fixedStars(req: FixedStarsRequest): {jdUt: number; stars: FixedStar[]; warnings: string[]} {
+  fixedStars(req: FixedStarsRequest): {
+    jdUt: number;
+    stars: FixedStar[];
+    warnings: string[];
+  } {
     return unwrap(Native.calcFixedStars(JSON.stringify(req)));
   },
 
-  houseSystems(): {code: string; name: string}[] {
-    return unwrap<{houseSystems: {code: string; name: string}[]}>(Native.listHouseSystems())
-      .houseSystems;
+  houseSystems(): { code: string; name: string }[] {
+    return unwrap<{ houseSystems: { code: string; name: string }[] }>(
+      Native.listHouseSystems(),
+    ).houseSystems;
   },
 
-  ayanamsas(): {id: number; name: string}[] {
-    return unwrap<{ayanamsas: {id: number; name: string}[]}>(Native.listAyanamsas()).ayanamsas;
+  ayanamsas(): { id: number; name: string }[] {
+    return unwrap<{ ayanamsas: { id: number; name: string }[] }>(
+      Native.listAyanamsas(),
+    ).ayanamsas;
   },
 
   shutdown(): void {

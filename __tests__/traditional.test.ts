@@ -1,4 +1,7 @@
 import { ChartResult } from '../src/astro/engine';
+
+// Only pure helpers are tested here; the native engine is absent under Jest.
+jest.mock('../specs/NativeAstroEngine', () => ({}));
 import {
   computeLots,
   findAspects,
@@ -172,4 +175,16 @@ test('day or night does not depend on the house system', () => {
     100,
   );
   expect(isDayChart(c)).toBe(true);
+});
+
+test('polar fallback places planets by the Porphyry cusps actually used', () => {
+  const { withConsistentHouses } = require('../src/astro/engine');
+  const c = chart({ sun: [45, 1, 9.99], moon: [350, 13, 1.2] }, 0);
+  c.houses!.cusps = [0, 40, 70, 90, 120, 150, 180, 220, 250, 270, 300, 330];
+  c.houses!.fallbackUsed = true;
+  const fixed = withConsistentHouses(c);
+  // 45 lies in house 2 (40..70), a sixth of the way in.
+  expect(fixed.bodies[0].housePosition).toBeCloseTo(2 + 5 / 30);
+  // 350 lies in house 12 (330..360).
+  expect(Math.floor(fixed.bodies[1].housePosition)).toBe(12);
 });
