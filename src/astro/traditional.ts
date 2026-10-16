@@ -5,7 +5,8 @@
 // - Aspects: the five Ptolemaic aspects; orb 8° for conjunction and
 //   opposition, 7° for trine and square, 5° for sextile; 2° more when the Sun
 //   or Moon is involved.
-// - Sect: day chart when the Sun is above the horizon (houses 7..12).
+// - Sect: day chart when the Sun is above the horizon, whatever the house
+//   system.
 // - Lots: Hermetic lots of Paulus Alexandrinus plus father and mother, each
 //   reversed by night as in al-Biruni's Tafhim.
 // - Dignities: domicile, exaltation, Dorothean triplicity (day, night,
@@ -35,14 +36,13 @@ export function isDayChart(chart: ChartResult): boolean {
   if (!sun) {
     throw new Error('chart has no Sun');
   }
-  if (sun.housePosition !== undefined) {
-    return sun.housePosition >= 7;
-  }
   if (!chart.houses) {
     throw new Error('sect needs a chart with houses');
   }
-  // Ecliptic approximation: Sun between the Descendant and the Ascendant
-  // going through the Midheaven.
+  // The ecliptic crosses the horizon at the Ascendant and the Descendant, and
+  // the Sun stays on the ecliptic, so it is above the horizon exactly when it
+  // lies on the Midheaven side of that axis. Unlike house positions, this does
+  // not depend on the house system.
   return norm(sun.lon - chart.houses.asc) >= 180;
 }
 

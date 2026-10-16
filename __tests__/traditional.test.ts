@@ -122,7 +122,7 @@ test('aspects with orbs, luminary bonus and applying/separating', () => {
 test('sect and lots reverse by night', () => {
   const day = chart(
     {
-      sun: [200, 1, 10.5],
+      sun: [300, 1, 10.5],
       moon: [50],
       mercury: [190],
       venus: [220],
@@ -134,9 +134,9 @@ test('sect and lots reverse by night', () => {
   );
   expect(isDayChart(day)).toBe(true);
   const lots = computeLots(day);
-  // Fortune by day: Asc + Moon - Sun = 100 + 50 - 200 = -50 = 310.
-  expect(lots.find(l => l.key === 'fortune')!.lon).toBeCloseTo(310);
-  expect(lots.find(l => l.key === 'spirit')!.lon).toBeCloseTo(250);
+  // Fortune by day: Asc + Moon - Sun = 100 + 50 - 300 = -150 = 210.
+  expect(lots.find(l => l.key === 'fortune')!.lon).toBeCloseTo(210);
+  expect(lots.find(l => l.key === 'spirit')!.lon).toBeCloseTo(350);
 
   const night = chart(
     {
@@ -154,4 +154,22 @@ test('sect and lots reverse by night', () => {
   expect(computeLots(night).find(l => l.key === 'fortune')!.lon).toBeCloseTo(
     250,
   );
+});
+
+test('day or night does not depend on the house system', () => {
+  // Asc 100, so the Descendant is 280; the Sun at 290 is just above the
+  // horizon. A whole-sign house position of 6 must not make it a night chart.
+  const c = chart(
+    {
+      sun: [290, 1, 6.9],
+      moon: [50],
+      mercury: [190],
+      venus: [220],
+      mars: [10],
+      jupiter: [100],
+      saturn: [300],
+    },
+    100,
+  );
+  expect(isDayChart(c)).toBe(true);
 });
