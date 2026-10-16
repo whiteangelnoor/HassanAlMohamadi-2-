@@ -154,9 +154,6 @@ function App(props: Props) {
     body = (
       <View style={styles.content}>
         <Header title="فلك" />
-        <Text style={styles.text}>
-          حسابات فلكية دقيقة تعمل على هاتفك بلا إنترنت.
-        </Text>
         <View style={styles.actions}>
           <Button
             label="خريطة جديدة"
