@@ -1,6 +1,7 @@
 /**
  * Root: initializes the engine with the ephemeris directory handed over by the
- * native side, then switches between the home, birth form and chart screens.
+ * native side, then navigates a stack of screens (home, birth form, chart,
+ * transits, predictive, calendar); the back button pops one level.
  * AGPL-3.0-or-later.
  *
  * @format
@@ -20,7 +21,10 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AstroEngine } from './src/astro/engine';
 import { BirthData, BirthForm, describeConversion } from './src/ui/BirthForm';
+import { CalendarScreen } from './src/ui/CalendarScreen';
 import { ChartInfo, ChartScreen } from './src/ui/ChartScreen';
+import { Natal, PredictiveScreen } from './src/ui/PredictiveScreen';
+import { TransitScreen } from './src/ui/TransitScreen';
 import { BODIES, colors, formatDateTime } from './src/ui/theme';
 import { Button, Header } from './src/ui/widgets';
 import { cityLabel } from './src/geo/cities';
@@ -39,7 +43,12 @@ type Props = {
 type Screen =
   | { kind: 'home' }
   | { kind: 'form' }
-  | { kind: 'chart'; make: ChartMaker; info: ChartInfo };
+  | { kind: 'calendar' }
+  // `place` is set for birth charts, which offer transits and predictive.
+  | { kind: 'chart'; make: ChartMaker; info: ChartInfo; place?: Place }
+  | { kind: 'transits'; natal: Natal }
+  | { kind: 'predictive'; natal: Natal };
+type Place = { lat: number; lon: number };
 
 /** Builds a chart for a house system, so the system can be switched live. */
 type ChartMaker = (houseSystem: string) => ChartInfo;
@@ -110,32 +119,44 @@ function skyNow(at: Date, houseSystem: string): ChartInfo {
 
 function App(props: Props) {
   const engine = useMemo(() => initEngine(props), [props]);
-  const [screen, setScreen] = useState<Screen>({ kind: 'home' });
+  const [stack, setStack] = useState<Screen[]>([{ kind: 'home' }]);
+  const screen = stack[stack.length - 1];
   const [error, setError] = useState<string | null>(null);
   // Kept for the whole session and used for every new chart.
   const [houseSystem, setHouseSystem] = useState('P');
 
+  const push = (s: Screen) => setStack(st => [...st, s]);
+  const replace = (s: Screen) => setStack(st => [...st.slice(0, -1), s]);
+  const back = () => setStack(st => (st.length > 1 ? st.slice(0, -1) : st));
+  const home = () => setStack([{ kind: 'home' }]);
+
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (screen.kind === 'home') {
+      if (stack.length <= 1) {
         return false;
       }
-      setScreen({ kind: 'home' });
+      back();
       return true;
     });
     return () => sub.remove();
-  }, [screen]);
+  }, [stack]);
 
-  const show = (make: ChartMaker, system = houseSystem) => {
+  /** Opens a chart; `how` replaces the current screen or pushes a new one. */
+  const openChart = (
+    make: ChartMaker,
+    how: 'push' | 'replace',
+    place?: Place,
+    system = houseSystem,
+  ) => {
     try {
       setError(null);
-      setScreen({ kind: 'chart', make, info: make(system) });
+      const s: Screen = { kind: 'chart', make, info: make(system), place };
+      how === 'push' ? push(s) : replace(s);
     } catch (e) {
       setError(String(e));
-      setScreen({ kind: 'home' });
+      home();
     }
   };
-  const home = () => setScreen({ kind: 'home' });
 
   let body;
   if (!engine.ok) {
@@ -149,39 +170,71 @@ function App(props: Props) {
   } else if (screen.kind === 'form') {
     body = (
       <BirthForm
-        onBack={home}
-        onSubmit={data => show(hs => birthChart(data, hs))}
+        onBack={back}
+        onSubmit={data =>
+          openChart(hs => birthChart(data, hs), 'replace', {
+            lat: data.city.lat,
+            lon: data.city.lon,
+          })
+        }
       />
     );
   } else if (screen.kind === 'chart') {
-    const { make } = screen;
+    const { make, place, info } = screen;
+    const natal: Natal | undefined = place
+      ? { chart: info.chart, lat: place.lat, lon: place.lon, title: info.title }
+      : undefined;
     body = (
       <ChartScreen
-        info={screen.info}
+        info={info}
         houseSystem={houseSystem}
         onHouseSystem={code => {
           setHouseSystem(code);
-          show(make, code);
+          openChart(make, 'replace', place, code);
         }}
-        onBack={home}
+        onTransits={natal ? () => push({ kind: 'transits', natal }) : undefined}
+        onPredictive={
+          natal ? () => push({ kind: 'predictive', natal }) : undefined
+        }
+        onBack={back}
       />
     );
+  } else if (screen.kind === 'transits') {
+    body = (
+      <TransitScreen
+        natal={screen.natal.chart}
+        title={screen.natal.title}
+        onBack={back}
+      />
+    );
+  } else if (screen.kind === 'predictive') {
+    body = (
+      <PredictiveScreen
+        natal={screen.natal}
+        onOpenChart={make => openChart(make, 'push')}
+        onBack={back}
+      />
+    );
+  } else if (screen.kind === 'calendar') {
+    body = <CalendarScreen onBack={back} />;
   } else {
     body = (
       <View style={styles.content}>
         <Header title="فلك" />
         <View style={styles.actions}>
-          <Button
-            label="خريطة جديدة"
-            onPress={() => setScreen({ kind: 'form' })}
-          />
+          <Button label="خريطة جديدة" onPress={() => push({ kind: 'form' })} />
           <Button
             label="السماء الآن"
             kind="secondary"
             onPress={() => {
               const at = new Date();
-              show(hs => skyNow(at, hs));
+              openChart(hs => skyNow(at, hs), 'push');
             }}
+          />
+          <Button
+            label="التقويم الفلكي"
+            kind="secondary"
+            onPress={() => push({ kind: 'calendar' })}
           />
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}

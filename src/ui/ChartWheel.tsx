@@ -75,12 +75,27 @@ export function spread(lons: number[], minGap = MIN_GAP): number[] {
   return out;
 }
 
+export interface WheelAspect {
+  a: string; // key in `outer` (or in `chart` when there is no outer ring)
+  b: string; // key in `chart`
+  kind: string;
+  orb: number;
+}
+
+/**
+ * `outer` adds a second ring of planets (transits, progressions) outside the
+ * chart's own; `outerAspects` are then the lines drawn, from outer to inner.
+ */
 export function ChartWheel({
   chart,
   size,
+  outer,
+  outerAspects,
 }: {
   chart: ChartResult;
   size: number;
+  outer?: ChartResult;
+  outerAspects?: WheelAspect[];
 }) {
   const houses = chart.houses;
   const asc = houses ? houses.asc : 0;
@@ -88,10 +103,14 @@ export function ChartWheel({
   const R = size / 2 - 2;
   const rSignOuter = R;
   const rSignInner = R * 0.84;
-  const rPlanet = R * 0.71;
-  const rDegree = R * 0.605;
-  const rHouseNum = R * 0.47;
-  const rInner = R * 0.4;
+  const bi = outer !== undefined;
+  const rOuterPlanet = R * 0.765;
+  const rOuterDegree = R * 0.685;
+  const rSeparator = R * 0.64;
+  const rPlanet = R * (bi ? 0.55 : 0.71);
+  const rDegree = R * (bi ? 0.475 : 0.605);
+  const rHouseNum = R * (bi ? 0.41 : 0.47);
+  const rInner = R * (bi ? 0.355 : 0.4);
 
   // Longitude -> screen point.
   const pt = (lon: number, r: number) => {
@@ -104,8 +123,17 @@ export function ChartWheel({
     [chart],
   );
   const shown = useMemo(() => spread(bodies.map(b => b.lon)), [bodies]);
-  const aspects = useMemo(
+  const outerBodies = useMemo(
+    () => (outer ? outer.bodies.filter(b => PLANET_GLYPHS[b.key]) : []),
+    [outer],
+  );
+  const outerShown = useMemo(
+    () => spread(outerBodies.map(b => b.lon)),
+    [outerBodies],
+  );
+  const aspects: WheelAspect[] = useMemo(
     () =>
+      outerAspects ??
       findAspects(aspectPoints(chart)).filter(
         a =>
           a.kind !== 'conjunction' &&
@@ -114,9 +142,13 @@ export function ChartWheel({
           a.b !== 'asc' &&
           a.b !== 'mc',
       ),
-    [chart],
+    [chart, outerAspects],
   );
-  const lonOf = (k: string) => chart.bodies.find(b => b.key === k)!.lon;
+  const lonOf = (k: string) => chart.bodies.find(b => b.key === k)?.lon ?? 0;
+  const pointLon = (k: string) =>
+    k === 'asc' ? asc : k === 'mc' ? houses?.mc ?? 0 : lonOf(k);
+  const outerLon = (k: string) =>
+    (outer ?? chart).bodies.find(b => b.key === k)?.lon ?? 0;
 
   const ticks = [];
   for (let d = 0; d < 360; d++) {
@@ -155,6 +187,16 @@ export function ChartWheel({
         strokeWidth={1}
         fill={colors.navy}
       />
+      {bi ? (
+        <Circle
+          cx={c}
+          cy={c}
+          r={rSeparator}
+          stroke={colors.line}
+          strokeWidth={0.8}
+          fill="none"
+        />
+      ) : null}
       <Circle
         cx={c}
         cy={c}
@@ -249,8 +291,8 @@ export function ChartWheel({
 
       {/* aspect lines */}
       {aspects.map(a => {
-        const p = pt(lonOf(a.a), rInner);
-        const q = pt(lonOf(a.b), rInner);
+        const p = pt(bi ? outerLon(a.a) : pointLon(a.a), rInner);
+        const q = pt(pointLon(a.b), rInner);
         const hard = HARD.has(a.kind);
         return (
           <Line
@@ -269,8 +311,10 @@ export function ChartWheel({
 
       {/* planets: exact tick on the zodiac ring, glyph and degree spread out */}
       {bodies.map((b, i) => {
-        const exactOuter = pt(b.lon, rSignInner);
-        const exactInner = pt(b.lon, rSignInner - R * 0.06);
+        // With an outer ring the chart's own ticks sit on the separator.
+        const tickFrom = bi ? rSeparator : rSignInner;
+        const exactOuter = pt(b.lon, tickFrom);
+        const exactInner = pt(b.lon, tickFrom - R * (bi ? 0.03 : 0.05));
         const g = pt(shown[i], rPlanet);
         const d = pt(shown[i], rDegree);
         const fs = R * 0.078;
@@ -297,6 +341,47 @@ export function ChartWheel({
               y={g.y + fs * 0.35}
               fontSize={fs}
               fill={colors.text}
+              textAnchor="middle"
+            >
+              {PLANET_GLYPHS[b.key] + T}
+            </SvgText>
+            <SvgText
+              x={d.x}
+              y={d.y + fd * 0.35}
+              fontSize={fd}
+              fill={colors.muted}
+              textAnchor="middle"
+            >
+              {`${deg}°${b.retrograde ? '℞' : ''}`}
+            </SvgText>
+          </G>
+        );
+      })}
+
+      {/* outer ring: transiting or progressed planets */}
+      {outerBodies.map((b, i) => {
+        const exactOuter = pt(b.lon, rSignInner);
+        const exactInner = pt(b.lon, rSignInner - R * 0.035);
+        const g = pt(outerShown[i], rOuterPlanet);
+        const d = pt(outerShown[i], rOuterDegree);
+        const fs = R * 0.068;
+        const fd = R * 0.034;
+        const deg = Math.floor(norm(b.lon) % 30);
+        return (
+          <G key={`o${b.key}`}>
+            <Line
+              x1={exactOuter.x}
+              y1={exactOuter.y}
+              x2={exactInner.x}
+              y2={exactInner.y}
+              stroke={colors.gold}
+              strokeWidth={1.4}
+            />
+            <SvgText
+              x={g.x}
+              y={g.y + fs * 0.35}
+              fontSize={fs}
+              fill={colors.gold}
               textAnchor="middle"
             >
               {PLANET_GLYPHS[b.key] + T}

@@ -52,11 +52,16 @@ export function ChartScreen({
   info,
   houseSystem,
   onHouseSystem,
+  onTransits,
+  onPredictive,
   onBack,
 }: {
   info: ChartInfo;
   houseSystem: string;
   onHouseSystem: (code: string) => void;
+  /** Present for birth charts: open transits / returns and progressions. */
+  onTransits?: () => void;
+  onPredictive?: () => void;
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('planets');
@@ -95,6 +100,16 @@ export function ChartScreen({
           {`${houseSystemName(houseSystem)}  ⌄`}
         </Text>
       </Pressable>
+      {onTransits && onPredictive ? (
+        <View style={styles.actions}>
+          <View style={styles.action}>
+            <Button label="العبور" kind="secondary" onPress={onTransits} />
+          </View>
+          <View style={styles.action}>
+            <Button label="التحويلات" kind="secondary" onPress={onPredictive} />
+          </View>
+        </View>
+      ) : null}
       <HouseSystemPicker
         visible={picking}
         current={houseSystem}
@@ -369,6 +384,8 @@ function Dignities({ chart }: { chart: ChartResult }) {
 }
 
 const styles = StyleSheet.create({
+  actions: { flexDirection: 'row-reverse', gap: 10 },
+  action: { flex: 1 },
   selector: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',

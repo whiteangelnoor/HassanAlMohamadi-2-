@@ -1,0 +1,4 @@
+# Generated data and fixtures: keep byte-for-byte.
+src/geo/cities.data.ts
+src/time/tzdata.data.ts
+__tests__/fixtures/
