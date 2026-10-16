@@ -24,6 +24,7 @@ import { ChartInfo, ChartScreen } from './src/ui/ChartScreen';
 import { BODIES, colors, formatDateTime } from './src/ui/theme';
 import { Button, Header } from './src/ui/widgets';
 import { cityLabel } from './src/geo/cities';
+import { BUILD } from './src/buildInfo';
 
 // Layout is written right-to-left explicitly; keep it identical whatever the
 // phone language is.
@@ -178,7 +179,9 @@ function App(props: Props) {
           </View>
         ) : null}
         <Text style={styles.footer}>
-          {`النسخة ${props.build ?? 0} · المكتبة السويسرية ${engine.version}`}
+          {`النسخة ${BUILD || props.build || 0} · المكتبة السويسرية ${
+            engine.version
+          }`}
         </Text>
       </View>
     );

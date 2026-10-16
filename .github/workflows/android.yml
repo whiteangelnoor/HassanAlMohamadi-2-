@@ -86,6 +86,8 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - run: npm ci
+      - name: Stamp the build number into the bundle
+        run: echo "export const BUILD = ${{ needs.meta.outputs.build }};" > src/buildInfo.ts
       - name: Assemble
         working-directory: android
         run: >-
@@ -130,6 +132,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Stamp the build number into the bundle
+        run: echo "export const BUILD = ${{ needs.meta.outputs.build }};" > src/buildInfo.ts
       - name: Bundle and compile to Hermes bytecode
         run: |
           mkdir -p out/res
