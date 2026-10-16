@@ -106,12 +106,7 @@ export function SpiritualSignScreen({ onBack }: { onBack: () => void }) {
             <Row
               name="مجموع الاسم والأم"
               value={<Text style={styles.big}>{String(r.total)}</Text>}
-              last
             />
-          </Card>
-
-          <Section title="الحساب الكوني" />
-          <Card>
             <Row
               name="الحساب الكوني للاسم"
               value={<Text style={styles.big}>{cosmic(r.nameValue)}</Text>}
