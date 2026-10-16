@@ -47,6 +47,8 @@ import { SavedList } from './src/ui/SavedList';
 import { ArabicScreen } from './src/ui/ArabicScreen';
 import { SpiritualPage, SpiritualScreen } from './src/ui/SpiritualScreen';
 import { SpiritualSignScreen } from './src/ui/SpiritualSignScreen';
+import { NameMatchScreen } from './src/ui/NameMatchScreen';
+import { ElectionScreen } from './src/ui/ElectionScreen';
 import {
   DEFAULT_PLACE,
   PlanetaryHoursScreen,
@@ -432,12 +434,21 @@ function App(props: Props) {
       />
     );
   } else if (screen.kind === 'spiritualPage') {
+    const place = settings.place ?? DEFAULT_PLACE;
     body =
       screen.page === 'sign' ? (
         <SpiritualSignScreen onBack={back} />
+      ) : screen.page === 'match' ? (
+        <NameMatchScreen onBack={back} />
+      ) : screen.page === 'election' ? (
+        <ElectionScreen
+          place={place}
+          method={settings.mansions}
+          onBack={back}
+        />
       ) : (
         <PlanetaryHoursScreen
-          place={settings.place ?? DEFAULT_PLACE}
+          place={place}
           onPlace={p => changeSettings({ ...settings, place: p })}
           onBack={back}
         />

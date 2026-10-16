@@ -86,3 +86,15 @@ test('every lunar mansion has its traits', () => {
     expect(t.good || t.avoid).toBeTruthy();
   }
 });
+
+test('compatibility of natures', () => {
+  const { elementRelation, natureRelation } = require('../src/spiritual/abjad');
+  expect(elementRelation('fire', 'air')).toBe('agree');
+  expect(elementRelation('water', 'earth')).toBe('agree');
+  expect(elementRelation('fire', 'water')).toBe('oppose');
+  expect(elementRelation('earth', 'air')).toBe('oppose');
+  expect(elementRelation('fire', 'earth')).toBe('moderate');
+  expect(elementRelation('water', 'air')).toBe('moderate');
+  expect(natureRelation(['fire', 'water'], ['air'])).toBe('agree');
+  expect(natureRelation([], ['air'])).toBeNull();
+});

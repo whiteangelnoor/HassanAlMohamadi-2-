@@ -162,3 +162,46 @@ export function cosmicNumber(n: number): number {
   }
   return n;
 }
+
+// ---------- compatibility of two natures ------------------------------------------
+
+export type Relation = 'agree' | 'moderate' | 'oppose';
+export const RELATION_NAMES: Record<Relation, string> = {
+  agree: 'متوافقان',
+  moderate: 'معتدلان',
+  oppose: 'متنافران',
+};
+
+/**
+ * Fire and air (both hot) agree, as do earth and water (both cold), and any
+ * element with itself; fire and water, and air and earth, are opposite in
+ * both qualities; the rest share one quality and are moderate.
+ */
+export function elementRelation(a: Element, b: Element): Relation {
+  if (a === b) {
+    return 'agree';
+  }
+  const pair = [a, b].sort().join('-');
+  if (pair === 'air-fire' || pair === 'earth-water') {
+    return 'agree';
+  }
+  if (pair === 'fire-water' || pair === 'air-earth') {
+    return 'oppose';
+  }
+  return 'moderate';
+}
+
+/** For mixed natures, the best relation among their elements. */
+export function natureRelation(a: Element[], b: Element[]): Relation | null {
+  if (a.length === 0 || b.length === 0) {
+    return null;
+  }
+  const rank: Relation[] = ['agree', 'moderate', 'oppose'];
+  let best = 2;
+  for (const x of a) {
+    for (const y of b) {
+      best = Math.min(best, rank.indexOf(elementRelation(x, y)));
+    }
+  }
+  return rank[best];
+}

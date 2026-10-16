@@ -377,3 +377,87 @@ run('sunrise, sunset and planetary hours', () => {
     expect(hourReminders([], 0, place, from, 1)).toEqual([]);
   });
 });
+
+run('suitable times', () => {
+  const {
+    voidSpans,
+    findWindows,
+    PURPOSES,
+  } = require('../src/spiritual/election');
+  const { mansionOf, mansionOptions } = require('../src/astro/mansions');
+  const SEVEN = [
+    'moon',
+    'sun',
+    'mercury',
+    'venus',
+    'mars',
+    'jupiter',
+    'saturn',
+  ];
+  const start = jdFromDate(new Date(Date.UTC(2026, 9, 16)));
+  const end = start + 4;
+
+  // Brute force: every 10 minutes, exact aspects of the Moon by sign change.
+  const step = 10 / 1440;
+  const samples: { jd: number; lon: Record<string, number> }[] = [];
+  for (let jd = start - 3; jd <= end + 3; jd += step) {
+    const c = AstroEngine.chart({ time: { jdUt: jd }, bodies: SEVEN as any });
+    const lon: Record<string, number> = {};
+    c.bodies.forEach(b => (lon[b.key] = b.lon));
+    samples.push({ jd, lon });
+  }
+  const w = (x: number) => ((((x + 180) % 360) + 360) % 360) - 180;
+  const hits: number[] = [];
+  const ingress: number[] = [];
+  for (let i = 1; i < samples.length; i++) {
+    const p = samples[i - 1];
+    const q = samples[i];
+    if (Math.floor(p.lon.moon / 30) !== Math.floor(q.lon.moon / 30)) {
+      ingress.push(q.jd);
+    }
+    for (const body of SEVEN.slice(1)) {
+      for (const t of [0, 60, 90, 120, 180, 240, 270, 300]) {
+        const d0 = w(p.lon.moon - p.lon[body] - t);
+        const d1 = w(q.lon.moon - q.lon[body] - t);
+        if (d0 < 0 && d1 >= 0 && d1 - d0 < 10) {
+          hits.push(q.jd);
+        }
+      }
+    }
+  }
+  hits.sort((a, b) => a - b);
+
+  test('void of course: last aspect to the sign change, within 10 min', () => {
+    const spans = voidSpans(start, end);
+    expect(spans.length).toBeGreaterThan(0);
+    for (const s of spans) {
+      const ing = ingress.find(j => Math.abs(j - s.b) < 15 / 1440);
+      expect(ing).toBeDefined();
+      const prev = ingress.filter(j => j < ing! - 1 / 24).pop()!;
+      const inSign = hits.filter(j => j > prev && j < ing!);
+      const from = inSign.length ? inSign[inSign.length - 1] : prev;
+      expect(Math.abs(from - s.a) * 1440).toBeLessThan(15);
+    }
+  });
+
+  test('windows meet all three conditions', () => {
+    const marriage = PURPOSES.find((p: any) => p.key === 'marriage');
+    const place = { lat: 33.3406, lon: 44.4009 };
+    const list = findWindows(marriage, place, 'tropical', start, 7);
+    expect(list.length).toBeGreaterThan(0);
+    const voids = voidSpans(start - 1, start + 9);
+    for (const x of list) {
+      expect(marriage.planets).toContain(x.ruler);
+      const mid = (x.startJd + x.endJd) / 2;
+      const moon = AstroEngine.chart({
+        ...mansionOptions('tropical'),
+        time: { jdUt: mid },
+        bodies: ['moon'],
+      }).bodies[0];
+      expect(mansionOf(moon.lon)).toBe(x.mansion);
+      expect(marriage.mansions).toContain(x.mansion);
+      expect(voids.some((v: any) => mid > v.a && mid < v.b)).toBe(false);
+      expect(x.endJd - x.startJd).toBeGreaterThanOrEqual(10 / 1440 - 1e-9);
+    }
+  });
+});

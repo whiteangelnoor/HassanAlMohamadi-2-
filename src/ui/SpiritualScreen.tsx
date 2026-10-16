@@ -6,11 +6,13 @@ import { Hint } from './list';
 import { colors, FONT } from './theme';
 import { Header } from './widgets';
 
-export type SpiritualPage = 'sign' | 'hours';
+export type SpiritualPage = 'sign' | 'hours' | 'election' | 'match';
 
 const CARDS: { key: SpiritualPage | null; title: string; glyph: string }[] = [
   { key: 'sign', title: 'البرج الروحاني', glyph: '♈︎' },
   { key: 'hours', title: 'الساعات الروحانية', glyph: '☉︎' },
+  { key: 'election', title: 'الوقت المناسب', glyph: '☽︎' },
+  { key: 'match', title: 'توافق الاسمين', glyph: '♀︎' },
   { key: null, title: 'قريباً', glyph: '✦' },
 ];
 
