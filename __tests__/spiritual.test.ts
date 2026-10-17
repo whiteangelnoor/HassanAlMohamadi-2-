@@ -98,3 +98,15 @@ test('compatibility of natures', () => {
   expect(natureRelation(['fire', 'water'], ['air'])).toBe('agree');
   expect(natureRelation([], ['air'])).toBeNull();
 });
+
+test('horary topics: chapters point at listed matters, no duplicates', () => {
+  const { HOUSE_MATTERS, MATTER_KIND } = require('../src/astro/horaryTopics');
+  const all: string[] = HOUSE_MATTERS.flatMap((h: any) => h.matters);
+  expect(new Set(all).size).toBe(all.length);
+  for (const k of Object.keys(MATTER_KIND)) {
+    expect(all).toContain(k);
+  }
+  expect(HOUSE_MATTERS.map((h: any) => h.house)).toEqual([
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+  ]);
+});
