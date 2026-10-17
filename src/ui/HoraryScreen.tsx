@@ -163,6 +163,7 @@ export function HoraryScreen({
   const [error, setError] = useState<string | null>(null);
   const [showEvidence, setShowEvidence] = useState(false);
   const [log, setLog] = useState<HoraryEntry[]>(() => loadHoraryLog());
+  const [showLog, setShowLog] = useState(false);
 
   const matters = two ? [matter, matterB] : [matter];
   const ready = matters.every(m => m !== null);
@@ -517,8 +518,16 @@ export function HoraryScreen({
       ) : null}
 
       {log.length ? (
+        <Pressable onPress={() => setShowLog(v => !v)}>
+          <Text style={styles.toggle}>
+            {showLog
+              ? 'إخفاء سجل المسائل'
+              : `سجل المسائل السابقة (${log.length})`}
+          </Text>
+        </Pressable>
+      ) : null}
+      {log.length && showLog ? (
         <>
-          <Section title="سجل المسائل" />
           {judged.length ? (
             <Text style={styles.note}>
               {`أصاب الحكم في ${hits} من ${judged.length} مسألة عُرفت نتيجتها (لا تُحسب المشكوك فيها).`}
