@@ -202,3 +202,57 @@ test('aspect readings: every pair of the seven, only aspects that can occur', ()
   expect(aspectReading('sun', 'saturn', 'quincunx')).toBeNull();
   expect(aspectReading('sun', 'uranus', 'trine')).toBeNull();
 });
+
+test('geomancy: sixteen figures, the shield follows its rules', () => {
+  const {
+    FIGURES,
+    castShield,
+    add,
+    points,
+    randomCounts,
+  } = require('../src/spiritual/raml');
+  // Every one of the sixteen patterns is named once.
+  const all: string[] = [];
+  for (const a of [1, 2])
+    for (const b of [1, 2])
+      for (const c of [1, 2])
+        for (const d of [1, 2]) all.push(`${a}${b}${c}${d}`);
+  expect(Object.keys(FIGURES).sort()).toEqual(all.sort());
+  expect(new Set(Object.values(FIGURES).map((f: any) => f.name)).size).toBe(16);
+  // Odd counts give one point: lines 1..16 = 5,6,7,8 ... make known mothers.
+  const s = castShield([
+    5,
+    5,
+    5,
+    5, // mother 1: 1111 الطريق
+    6,
+    6,
+    6,
+    6, // mother 2: 2222 الجماعة
+    6,
+    5,
+    5,
+    6, // mother 3: 2112
+    5,
+    6,
+    6,
+    5, // mother 4: 1221
+  ]);
+  expect(s.mothers.map((m: number[]) => m.join(''))).toEqual([
+    '1111',
+    '2222',
+    '2112',
+    '1221',
+  ]);
+  // Daughter 1 = first rows of the mothers.
+  expect(s.daughters[0].join('')).toBe('1221');
+  expect(add([1, 1, 1, 1], [2, 2, 2, 2]).join('')).toBe('1111');
+  expect(add([1, 2, 1, 2], [1, 2, 2, 1]).join('')).toBe('2211');
+  expect(s.houses).toHaveLength(12);
+  // The judge always has an even number of points, over many casts.
+  for (let i = 0; i < 200; i++) {
+    const r = castShield(randomCounts());
+    expect(points(r.judge) % 2).toBe(0);
+    expect(r.judge.join('')).toBe(add(r.rightWitness, r.leftWitness).join(''));
+  }
+});

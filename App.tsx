@@ -50,6 +50,7 @@ import { SpiritualSignScreen } from './src/ui/SpiritualSignScreen';
 import { NameMatchScreen } from './src/ui/NameMatchScreen';
 import { ElectionScreen } from './src/ui/ElectionScreen';
 import { HoraryScreen } from './src/ui/HoraryScreen';
+import { RamlScreen } from './src/ui/RamlScreen';
 import { TodayCard } from './src/ui/TodayCard';
 import {
   DEFAULT_PLACE,
@@ -444,6 +445,8 @@ function App(props: Props) {
         <SpiritualSignScreen onBack={back} />
       ) : screen.page === 'match' ? (
         <NameMatchScreen onBack={back} />
+      ) : screen.page === 'raml' ? (
+        <RamlScreen onBack={back} />
       ) : screen.page === 'election' ? (
         <ElectionScreen
           place={place}

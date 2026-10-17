@@ -36,6 +36,7 @@ import { ArabicScreen } from '../src/ui/ArabicScreen';
 import { SpiritualScreen } from '../src/ui/SpiritualScreen';
 import { HoraryScreen } from '../src/ui/HoraryScreen';
 import { TodayCard } from '../src/ui/TodayCard';
+import { RamlScreen } from '../src/ui/RamlScreen';
 import {
   DEFAULT_PLACE,
   PlanetaryHoursScreen,
@@ -146,5 +147,26 @@ run('new screens with the real engine', () => {
     expect(out).toContain('القمر');
     expect(out).toContain('منزلة');
     expect(out).toContain('الساعة الآن');
+  });
+
+  test('geomancy: one press casts the sand and judges', async () => {
+    jest.useFakeTimers();
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<RamlScreen onBack={() => {}} />);
+    });
+    const strike = tree!.root.findAll(
+      (n: any) =>
+        n.props.label === 'اضرب الرمل' && typeof n.props.onPress === 'function',
+    );
+    expect(strike.length).toBeGreaterThan(0);
+    await ReactTestRenderer.act(async () => {
+      strike[0].props.onPress();
+    });
+    jest.useRealTimers();
+    const out = JSON.stringify(tree!.toJSON());
+    expect(out).toContain('الحاكم');
+    expect(out).toContain('الأمهات');
+    expect(out).toMatch(/الاستخارة/);
   });
 });

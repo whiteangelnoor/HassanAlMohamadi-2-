@@ -46,7 +46,7 @@ const ASPECT_ADVERB: Record<HoraryAspect, string> = {
   opposition: 'مقابلةً',
 };
 
-type Matter = { house: number; label: string } | 'intention';
+export type Matter = { house: number; label: string } | 'intention';
 type Subject = (typeof SUBJECTS)[number];
 
 const COLOR = {
@@ -78,7 +78,7 @@ function rank(a: HoraryAnswer, j: HoraryJudgment): number {
 }
 
 /** Two dropdowns: the field of life, then the matter within it. */
-function MatterSelect({
+export function MatterSelect({
   label,
   value,
   allowIntention,
