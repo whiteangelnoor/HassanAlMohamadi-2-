@@ -24,6 +24,8 @@ import {
   quraEntry,
   randomHandfuls,
 } from '../spiritual/qura';
+import { BOOK_FIELDS, BOOK_RULES, rulesOf } from '../spiritual/ramlBook';
+import { RamlField, RuleAnswer } from '../spiritual/ramlKit';
 import { Matter, MatterSelect } from './HoraryScreen';
 import { Card, Hint, Row, Section, Stepper } from './list';
 import { colors, FONT } from './theme';
@@ -197,7 +199,25 @@ export function RamlScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+const GENERAL = 'عام';
+
+function AnswerBox({ a }: { a: RuleAnswer }) {
+  const color = a.verdict === 'info' ? colors.gold : COLOR[a.verdict];
+  return (
+    <View style={[styles.verdict, { borderColor: color }]}>
+      <Text style={[styles.headline, { color }]}>{a.headline}</Text>
+      {a.lines.map((l, i) => (
+        <Text key={i} style={styles.body}>
+          {l}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 function ShieldView() {
+  const [field, setField] = useState<RamlField | null>(null);
+  const [ruleId, setRuleId] = useState<string | null>(null);
   const [matter, setMatter] = useState<Matter | null>(null);
   const [manual, setManual] = useState(false);
   const [counts, setCounts] = useState<string[]>(() => Array(16).fill(''));
@@ -221,19 +241,45 @@ function ShieldView() {
     setShield(castShield(n));
   };
 
-  const answer = shield ? judgeShield(shield, house) : null;
+  const rule = BOOK_RULES.find(r => r.id === ruleId) ?? null;
+  const answer = shield ? judgeShield(shield, rule ? 1 : house) : null;
+  const special = shield && rule ? rule.judge(shield) : null;
 
   return (
     <>
-      <MatterSelect
-        label="موضوع الاستخارة (اختياري)"
-        value={matter}
-        allowIntention={false}
-        onChange={m => {
-          setMatter(m);
+      <Select
+        label="الموضوع"
+        value={field ?? GENERAL}
+        placeholder={GENERAL}
+        options={[GENERAL, ...BOOK_FIELDS]}
+        onChange={v => {
+          setField(v === GENERAL ? null : (v as RamlField));
+          setRuleId(null);
           setShield(null);
         }}
       />
+      {field ? (
+        <Select
+          label="السؤال"
+          value={rule?.title ?? null}
+          placeholder="اختر السؤال"
+          options={rulesOf(field).map(r => r.title)}
+          onChange={v => {
+            setRuleId(rulesOf(field).find(r => r.title === v)?.id ?? null);
+            setShield(null);
+          }}
+        />
+      ) : (
+        <MatterSelect
+          label="بيت المسألة (اختياري)"
+          value={matter}
+          allowIntention={false}
+          onChange={m => {
+            setMatter(m);
+            setShield(null);
+          }}
+        />
+      )}
 
       <Stepper
         items={[
@@ -282,18 +328,16 @@ function ShieldView() {
 
       {shield && answer ? (
         <>
-          <View
-            style={[styles.verdict, { borderColor: COLOR[answer.verdict] }]}
-          >
-            <Text style={[styles.headline, { color: COLOR[answer.verdict] }]}>
-              {answer.headline}
-            </Text>
-            {answer.lines.map((l, i) => (
-              <Text key={i} style={styles.body}>
-                {l}
-              </Text>
-            ))}
-          </View>
+          {special && rule ? (
+            <>
+              <AnswerBox a={special} />
+              <Hint>
+                من باب «{rule.title}» في الفلك المشحون، ص{rule.page}.
+              </Hint>
+              <Section title="الأحكام العامة للضرب" />
+            </>
+          ) : null}
+          <AnswerBox a={answer} />
 
           <Section title="الأمهات" />
           <View style={styles.figRow}>

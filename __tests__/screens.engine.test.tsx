@@ -167,7 +167,37 @@ run('new screens with the real engine', () => {
     const out = JSON.stringify(tree!.toJSON());
     expect(out).toContain('الميزان');
     expect(out).toContain('الأمهات');
-    expect(out).toMatch(/الاستخارة/);
+    expect(out).toMatch(/الاستخارة|ضعيف الصدق|النية مضطربة/);
+  });
+
+  test('geomancy: a question from the book is judged on one press', async () => {
+    jest.useFakeTimers();
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<RamlScreen onBack={() => {}} />);
+    });
+    const byLabel = (l: string) =>
+      tree!.root.findAll(
+        (n: any) =>
+          n.props.label === l && typeof n.props.onChange === 'function',
+      )[0];
+    await ReactTestRenderer.act(async () => {
+      byLabel('الموضوع').props.onChange('الحمل والأولاد');
+    });
+    await ReactTestRenderer.act(async () => {
+      byLabel('السؤال').props.onChange('هل المرأة حامل؟');
+    });
+    const strike = tree!.root.findAll(
+      (n: any) =>
+        n.props.label === 'اضرب الرمل' && typeof n.props.onPress === 'function',
+    );
+    await ReactTestRenderer.act(async () => {
+      strike[0].props.onPress();
+    });
+    jest.useRealTimers();
+    const out = JSON.stringify(tree!.toJSON());
+    expect(out).toContain('هل المرأة حامل؟');
+    expect(out).toContain('الأحكام العامة للضرب');
   });
 
   test('قرعة الضمير: one press draws one figure and its judgment', async () => {
@@ -186,7 +216,8 @@ run('new screens with the real engine', () => {
     });
     const draw = tree!.root.findAll(
       (n: any) =>
-        n.props.label === 'اسحب القرعة' && typeof n.props.onPress === 'function',
+        n.props.label === 'اسحب القرعة' &&
+        typeof n.props.onPress === 'function',
     );
     expect(draw.length).toBeGreaterThan(0);
     await ReactTestRenderer.act(async () => {
