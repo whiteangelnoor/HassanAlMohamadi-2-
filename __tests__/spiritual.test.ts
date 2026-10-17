@@ -151,3 +151,23 @@ test('readings: twelve texts each, dignities named where they fall', () => {
     }
   }
 });
+
+test('readings in houses: twelve distinct texts for each of the seven', () => {
+  const { IN_HOUSE } = require('../src/astro/readings');
+  const seven = [
+    'sun',
+    'moon',
+    'mercury',
+    'venus',
+    'mars',
+    'jupiter',
+    'saturn',
+  ];
+  expect(Object.keys(IN_HOUSE).sort()).toEqual([...seven].sort());
+  const all: string[] = [];
+  for (const p of seven) {
+    expect(IN_HOUSE[p]).toHaveLength(12);
+    all.push(...IN_HOUSE[p]);
+  }
+  expect(new Set(all).size).toBe(84);
+});

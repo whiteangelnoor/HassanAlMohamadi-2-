@@ -34,6 +34,8 @@ import {
 import { Button, Header } from './widgets';
 import {
   ASC_IN,
+  HOUSE_ORDINALS,
+  IN_HOUSE,
   JUPITER_IN,
   MARS_IN,
   MERCURY_IN,
@@ -248,7 +250,7 @@ const READING_BODIES: [string, string, string[]][] = [
 
 function Reading({ chart }: { chart: ChartResult }) {
   const sign = (lon: number) => Math.floor((((lon % 360) + 360) % 360) / 30);
-  const parts: [string, string][] = [];
+  const parts: [string, string, string?][] = [];
   if (chart.houses) {
     const s = sign(chart.houses.asc);
     parts.push([`الطالع في ${SIGNS[s]}`, ASC_IN[s]]);
@@ -256,15 +258,25 @@ function Reading({ chart }: { chart: ChartResult }) {
   for (const [key, name, texts] of READING_BODIES) {
     const b = chart.bodies.find(x => x.key === key);
     if (b) {
-      parts.push([`${name} في ${SIGNS[sign(b.lon)]}`, texts[sign(b.lon)]]);
+      const h = b.housePosition ? Math.floor(b.housePosition) : null;
+      parts.push([
+        `${name} في ${SIGNS[sign(b.lon)]}${
+          h ? ` · البيت ${HOUSE_ORDINALS[h - 1]}` : ''
+        }`,
+        texts[sign(b.lon)],
+        h ? IN_HOUSE[key][h - 1] : undefined,
+      ]);
     }
   }
   return (
     <>
-      {parts.map(([title, text]) => (
+      {parts.map(([title, text, houseText]) => (
         <View key={title} style={styles.readingBlock}>
           <Text style={styles.readingTitle}>{title}</Text>
           <Text style={styles.readingText}>{text}</Text>
+          {houseText ? (
+            <Text style={styles.readingText}>{houseText}</Text>
+          ) : null}
         </View>
       ))}
       <Text style={styles.note}>
