@@ -35,6 +35,7 @@ import { TransitScreen } from '../src/ui/TransitScreen';
 import { ArabicScreen } from '../src/ui/ArabicScreen';
 import { SpiritualScreen } from '../src/ui/SpiritualScreen';
 import { HoraryScreen } from '../src/ui/HoraryScreen';
+import { TodayCard } from '../src/ui/TodayCard';
 import {
   DEFAULT_PLACE,
   PlanetaryHoursScreen,
@@ -136,5 +137,14 @@ run('new screens with the real engine', () => {
     expect(out).not.toContain('سؤالك');
     expect(out).not.toContain('البيت 1');
     expect(out).not.toContain('اضمر سؤالك');
+  });
+
+  test('today card: the Moon and the hour now', async () => {
+    const out = await render(
+      <TodayCard place={DEFAULT_PLACE} method="tropical" />,
+    );
+    expect(out).toContain('القمر');
+    expect(out).toContain('منزلة');
+    expect(out).toContain('الساعة الآن');
   });
 });

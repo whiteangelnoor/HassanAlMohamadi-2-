@@ -256,7 +256,7 @@ function HourRow({
           {traits.avoid ? (
             <Text
               style={styles.traitsText}
-            >{`تُتّقى لـ: ${traits.avoid}`}</Text>
+            >{`لا تصلح لـ: ${traits.avoid}`}</Text>
           ) : null}
         </View>
       ) : null}

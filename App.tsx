@@ -50,6 +50,7 @@ import { SpiritualSignScreen } from './src/ui/SpiritualSignScreen';
 import { NameMatchScreen } from './src/ui/NameMatchScreen';
 import { ElectionScreen } from './src/ui/ElectionScreen';
 import { HoraryScreen } from './src/ui/HoraryScreen';
+import { TodayCard } from './src/ui/TodayCard';
 import {
   DEFAULT_PLACE,
   PlanetaryHoursScreen,
@@ -519,6 +520,12 @@ function App(props: Props) {
     body = (
       <ScrollView contentContainerStyle={styles.content}>
         <Header title="فلك" />
+        {engine.ok ? (
+          <TodayCard
+            place={settings.place ?? DEFAULT_PLACE}
+            method={settings.mansions}
+          />
+        ) : null}
         <View style={styles.actions}>
           <Button label="خريطة جديدة" onPress={() => push({ kind: 'form' })} />
           <Button

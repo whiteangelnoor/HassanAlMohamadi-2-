@@ -30,6 +30,7 @@ import {
   formatLongitude,
   LOT_NAMES,
   POINT_NAMES,
+  SIGNS,
 } from './theme';
 import { Button, Header } from './widgets';
 import { ChartWheel } from './ChartWheel';
@@ -104,6 +105,7 @@ export function ChartScreen({
         </View>
       ) : null}
 
+      <BigThree chart={chart} />
       <Wheel chart={chart} />
 
       <Pressable
@@ -190,6 +192,31 @@ function Section({ title }: { title: string }) {
 }
 
 // ---------- tabs ---------------------------------------------------------------
+
+/** The Sun, the Moon and the Ascendant: what people ask about first. */
+function BigThree({ chart }: { chart: ChartResult }) {
+  const sign = (lon: number) =>
+    SIGNS[Math.floor((((lon % 360) + 360) % 360) / 30)];
+  const sun = chart.bodies.find(b => b.key === 'sun');
+  const moon = chart.bodies.find(b => b.key === 'moon');
+  const items: [string, string][] = [
+    ...(sun ? [['الشمس', sign(sun.lon)] as [string, string]] : []),
+    ...(moon ? [['القمر', sign(moon.lon)] as [string, string]] : []),
+    ...(chart.houses
+      ? [['الطالع', sign(chart.houses.asc)] as [string, string]]
+      : []),
+  ];
+  return (
+    <View style={styles.bigThree}>
+      {items.map(([k, v]) => (
+        <View key={k} style={styles.bigItem}>
+          <Text style={styles.bigLabel}>{k}</Text>
+          <Text style={styles.bigValue}>{v}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 function Wheel({ chart }: { chart: ChartResult }) {
   const { width } = useWindowDimensions();
@@ -431,6 +458,23 @@ function Dignities({ chart }: { chart: ChartResult }) {
 }
 
 const styles = StyleSheet.create({
+  bigThree: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-around',
+    borderColor: colors.gold,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    backgroundColor: colors.navyRaised,
+  },
+  bigItem: { alignItems: 'center', gap: 2 },
+  bigLabel: { fontFamily: FONT, color: colors.muted, fontSize: 13 },
+  bigValue: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 18,
+    fontWeight: '600',
+  },
   actions: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
   chip: {
     borderColor: colors.gold,
