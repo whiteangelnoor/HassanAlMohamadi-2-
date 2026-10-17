@@ -54,6 +54,7 @@ test('every tab renders for a real chart', async () => {
   expect(text()).toContain('الشمس في');
   expect(text()).toContain('القمر في');
   expect(text()).toContain('الطالع في');
+  expect(text()).toContain('الجوانب');
   expect(text()).toMatch(
     /البيت (الأول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|الحادي عشر|الثاني عشر)/,
   );

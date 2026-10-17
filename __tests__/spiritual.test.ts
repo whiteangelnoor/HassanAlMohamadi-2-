@@ -171,3 +171,34 @@ test('readings in houses: twelve distinct texts for each of the seven', () => {
   }
   expect(new Set(all).size).toBe(84);
 });
+
+test('aspect readings: every pair of the seven, only aspects that can occur', () => {
+  const {
+    ASPECT_READINGS,
+    SEVEN_ORDER,
+    aspectReading,
+  } = require('../src/astro/readings');
+  const keys: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    for (let k = i + 1; k < 7; k++) {
+      keys.push(`${SEVEN_ORDER[i]}-${SEVEN_ORDER[k]}`);
+    }
+  }
+  expect(Object.keys(ASPECT_READINGS).sort()).toEqual(keys.sort());
+  // Mercury and Venus keep close to the Sun and to each other.
+  expect(ASPECT_READINGS['sun-mercury'].soft).toBeUndefined();
+  expect(ASPECT_READINGS['sun-venus'].hard).toBeUndefined();
+  expect(ASPECT_READINGS['mercury-venus'].hard).toBeUndefined();
+  let count = 0;
+  for (const k of keys) {
+    const t = ASPECT_READINGS[k];
+    count += [t.conj, t.soft, t.hard].filter(Boolean).length;
+  }
+  expect(count).toBe(58);
+  // Order of the pair does not matter; minor aspects have no text.
+  expect(aspectReading('saturn', 'sun', 'square')).toBe(
+    ASPECT_READINGS['sun-saturn'].hard,
+  );
+  expect(aspectReading('sun', 'saturn', 'quincunx')).toBeNull();
+  expect(aspectReading('sun', 'uranus', 'trine')).toBeNull();
+});

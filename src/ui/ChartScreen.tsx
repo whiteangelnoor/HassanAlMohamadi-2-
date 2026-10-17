@@ -34,6 +34,7 @@ import {
 import { Button, Header } from './widgets';
 import {
   ASC_IN,
+  aspectReading,
   HOUSE_ORDINALS,
   IN_HOUSE,
   JUPITER_IN,
@@ -268,6 +269,10 @@ function Reading({ chart }: { chart: ChartResult }) {
       ]);
     }
   }
+  const aspects = findAspects(aspectPoints(chart))
+    .map(x => ({ x, text: aspectReading(x.a, x.b, x.kind) }))
+    .filter((y): y is { x: (typeof y)['x']; text: string } => !!y.text)
+    .slice(0, 12);
   return (
     <>
       {parts.map(([title, text, houseText]) => (
@@ -277,6 +282,15 @@ function Reading({ chart }: { chart: ChartResult }) {
           {houseText ? (
             <Text style={styles.readingText}>{houseText}</Text>
           ) : null}
+        </View>
+      ))}
+      {aspects.length ? <Section title="الجوانب" /> : null}
+      {aspects.map(({ x, text }) => (
+        <View key={`${x.a}-${x.b}`} style={styles.readingBlock}>
+          <Text style={styles.readingTitle}>{`${POINT_NAMES[x.a]} ${
+            ASPECT_NAMES[x.kind]
+          } ${POINT_NAMES[x.b]}`}</Text>
+          <Text style={styles.readingText}>{text}</Text>
         </View>
       ))}
       <Text style={styles.note}>
