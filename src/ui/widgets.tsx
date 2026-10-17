@@ -1,7 +1,10 @@
 // Small shared controls. AGPL-3.0-or-later.
 
+import { useState } from 'react';
 import {
+  Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -81,6 +84,118 @@ export function Field({ label, ...input }: TextInputProps & { label: string }) {
 }
 
 /** Accepts Arabic-Indic and Persian digits as typed on Arabic keyboards. */
+/** A dropdown: shows the chosen item, opens a list to choose from. */
+export function Select({
+  label,
+  value,
+  placeholder,
+  options,
+  onChange,
+}: {
+  label?: string;
+  value: string | null;
+  placeholder: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.field}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <Pressable
+        onPress={() => setOpen(true)}
+        style={({ pressed }) => [selectStyles.box, pressed && { opacity: 0.6 }]}
+        accessibilityRole="button"
+      >
+        <Text style={[selectStyles.value, !value && selectStyles.placeholder]}>
+          {value ?? placeholder}
+        </Text>
+        <Text style={selectStyles.caret}>▾</Text>
+      </Pressable>
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable style={selectStyles.backdrop} onPress={() => setOpen(false)}>
+          <Pressable style={selectStyles.sheet}>
+            <ScrollView>
+              {options.map((o, i) => (
+                <Pressable
+                  key={o}
+                  onPress={() => {
+                    onChange(o);
+                    setOpen(false);
+                  }}
+                  style={({ pressed }) => [
+                    selectStyles.item,
+                    i === options.length - 1 && selectStyles.lastItem,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      selectStyles.itemText,
+                      o === value && selectStyles.itemOn,
+                    ]}
+                  >
+                    {o}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+const selectStyles = StyleSheet.create({
+  box: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: colors.navyRaised,
+  },
+  value: { fontFamily: FONT, color: colors.text, fontSize: 16, flexShrink: 1 },
+  placeholder: { color: colors.muted },
+  caret: { color: colors.gold, fontSize: 16, marginRight: 8 },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  sheet: {
+    maxHeight: '75%',
+    backgroundColor: colors.navyRaised,
+    borderColor: colors.gold,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+  },
+  item: {
+    paddingVertical: 14,
+    borderBottomColor: colors.line,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  lastItem: { borderBottomWidth: 0 },
+  itemText: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  itemOn: { color: colors.gold, fontWeight: '600' },
+});
+
 export function toLatinDigits(s: string): string {
   return s
     .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))

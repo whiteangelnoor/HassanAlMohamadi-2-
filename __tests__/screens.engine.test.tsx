@@ -34,6 +34,7 @@ import { PredictiveScreen } from '../src/ui/PredictiveScreen';
 import { TransitScreen } from '../src/ui/TransitScreen';
 import { ArabicScreen } from '../src/ui/ArabicScreen';
 import { SpiritualScreen } from '../src/ui/SpiritualScreen';
+import { HoraryScreen } from '../src/ui/HoraryScreen';
 import {
   DEFAULT_PLACE,
   PlanetaryHoursScreen,
@@ -125,4 +126,15 @@ run('new screens with the real engine', () => {
     expect(hours).toContain('الشروق');
     expect(hours).not.toContain('جارٍ الحساب');
   }, 60000);
+
+  test('horary: dropdowns only, no question box, no house numbers', async () => {
+    const out = await render(
+      <HoraryScreen place={DEFAULT_PLACE} onBack={() => {}} />,
+    );
+    expect(out).toContain('المسألة عن');
+    expect(out).toContain('اختر الباب');
+    expect(out).not.toContain('سؤالك');
+    expect(out).not.toContain('البيت 1');
+    expect(out).not.toContain('اضمر سؤالك');
+  });
 });

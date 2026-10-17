@@ -36,7 +36,7 @@ import { formatJd } from './dates';
 import { DateBar } from './DatePicker';
 import { Card, Hint, Row, Section, Stepper } from './list';
 import { colors, FONT, POINT_NAMES } from './theme';
-import { Button, Field, Header, toLatinDigits } from './widgets';
+import { Button, Field, Header, Select, toLatinDigits } from './widgets';
 
 const ASPECT_ADVERB: Record<HoraryAspect, string> = {
   conjunction: 'مقارنةً',
@@ -77,6 +77,61 @@ function rank(a: HoraryAnswer, j: HoraryJudgment): number {
   return v * 100 + w;
 }
 
+/** Two dropdowns: the field of life, then the matter within it. */
+function MatterSelect({
+  label,
+  value,
+  allowIntention,
+  onChange,
+}: {
+  label: string;
+  value: Matter | null;
+  allowIntention: boolean;
+  onChange: (m: Matter | null) => void;
+}) {
+  const INTENTION = 'نية السائل';
+  const [field, setField] = useState<number | null>(
+    value && value !== 'intention' ? value.house : null,
+  );
+  const fieldTitle =
+    value === 'intention'
+      ? INTENTION
+      : field !== null
+      ? HOUSE_MATTERS[field - 1].title
+      : null;
+  return (
+    <>
+      <Select
+        label={label}
+        value={fieldTitle}
+        placeholder="اختر الباب"
+        options={[
+          ...(allowIntention ? [INTENTION] : []),
+          ...HOUSE_MATTERS.map(h => h.title),
+        ]}
+        onChange={v => {
+          if (v === INTENTION) {
+            setField(null);
+            onChange('intention');
+            return;
+          }
+          const h = HOUSE_MATTERS.find(x => x.title === v)!;
+          setField(h.house);
+          onChange(null);
+        }}
+      />
+      {field !== null && value !== 'intention' ? (
+        <Select
+          value={value ? value.label : null}
+          placeholder="اختر المسألة"
+          options={HOUSE_MATTERS[field - 1].matters}
+          onChange={v => onChange({ house: field, label: v })}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function HoraryScreen({
   place: defaultPlace,
   onBack,
@@ -85,12 +140,10 @@ export function HoraryScreen({
   onBack: () => void;
 }) {
   const { width } = useWindowDimensions();
-  const [question, setQuestion] = useState('');
   const [two, setTwo] = useState(false);
   const [subject, setSubject] = useState<Subject>(SUBJECTS[0]);
   const [matter, setMatter] = useState<Matter | null>(null);
   const [matterB, setMatterB] = useState<Matter | null>(null);
-  const [picking, setPicking] = useState<'a' | 'b' | null>('a');
 
   const [timeMode, setTimeMode] = useState<'now' | 'custom'>('now');
   const [day, setDay] = useState(() => new Date());
@@ -142,7 +195,7 @@ export function HoraryScreen({
           const a = answerFor(rs[0], matter!);
           addHoraryEntry({
             jd: askedAt,
-            question: question.trim(),
+            question: '',
             label:
               matter === 'intention'
                 ? 'نية السائل'
@@ -176,66 +229,13 @@ export function HoraryScreen({
     );
   };
 
-  const choose = (m: Matter) => {
-    if (picking === 'b') {
-      setMatterB(m);
-    } else {
-      setMatter(m);
-    }
-    setPicking(two && picking === 'a' && !matterB ? 'b' : null);
-    reset();
-  };
+  const matterText = (m: Matter | null) =>
+    m === null ? '' : m === 'intention' ? 'نية السائل' : m.label;
 
   const answers =
     results && ready
       ? results.map((r, i) => answerFor(r, matters[i] as Matter))
       : null;
-
-  const matterText = (m: Matter | null) =>
-    m === null
-      ? 'لم يُختر'
-      : m === 'intention'
-      ? 'نية السائل'
-      : `${m.label} · البيت ${m.house}`;
-
-  // ---------- the matter picker ----------
-  const picker = (
-    <View style={styles.picker}>
-      {!two ? (
-        <Pressable
-          onPress={() => choose('intention')}
-          style={({ pressed }) => [styles.intention, pressed && styles.pressed]}
-        >
-          <Text style={styles.intentionTitle}>نية السائل</Text>
-          <Text style={styles.intentionText}>
-            اضمر سؤالك في قلبك ولا تختر موضوعاً، فيُستخرج من الطالع ما يدور عليه
-            السؤال ثم يُحكم فيه.
-          </Text>
-        </Pressable>
-      ) : null}
-      {HOUSE_MATTERS.map(h => (
-        <View key={h.house} style={styles.houseGroup}>
-          <Text
-            style={styles.houseTitle}
-          >{`البيت ${h.house}: ${h.title}`}</Text>
-          <View style={styles.chips}>
-            {h.matters.map(m => (
-              <Pressable
-                key={m}
-                onPress={() => choose({ house: h.house, label: m })}
-                style={({ pressed }) => [
-                  styles.chip,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.chipText}>{m}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      ))}
-    </View>
-  );
 
   // ---------- one answer ----------
   const answerBox = (a: HoraryAnswer, r: HoraryJudgment, title?: string) => (
@@ -286,7 +286,6 @@ export function HoraryScreen({
             active: !two,
             onPress: () => {
               setTwo(false);
-              setPicking(matter ? null : 'a');
               reset();
             },
           },
@@ -298,76 +297,45 @@ export function HoraryScreen({
               if (matter === 'intention') {
                 setMatter(null);
               }
-              setPicking(!matter || matter === 'intention' ? 'a' : 'b');
               reset();
             },
           },
         ]}
       />
 
-      <Field
-        label="سؤالك (اختياري، للتذكير فقط)"
-        value={question}
-        onChangeText={setQuestion}
-        placeholder="اكتب سؤالك كما في قلبك"
-        multiline
-      />
-
       {matter !== 'intention' ? (
-        <>
-          <Section title="المسألة عن" />
-          <View style={styles.chips}>
-            {SUBJECTS.map(s => (
-              <Pressable
-                key={s.label}
-                onPress={() => {
-                  setSubject(s);
-                  reset();
-                }}
-                style={[
-                  styles.chip,
-                  subject.label === s.label && styles.chipOn,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    subject.label === s.label && styles.chipTextOn,
-                  ]}
-                >
-                  {s.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </>
+        <Select
+          label="المسألة عن"
+          value={subject.label}
+          placeholder="اختر"
+          options={SUBJECTS.map(x => x.label)}
+          onChange={v => {
+            setSubject(SUBJECTS.find(x => x.label === v)!);
+            reset();
+          }}
+        />
       ) : null}
 
-      <Section title={two ? 'الخياران' : 'موضوع المسألة'} />
+      <MatterSelect
+        label={two ? 'الخيار الأول' : 'الموضوع'}
+        value={matter}
+        allowIntention={!two}
+        onChange={m => {
+          setMatter(m);
+          reset();
+        }}
+      />
       {two ? (
-        <Card>
-          <Pressable onPress={() => setPicking('a')}>
-            <Row
-              name="الخيار الأول"
-              value={matterText(matter)}
-              highlight={picking === 'a'}
-            />
-          </Pressable>
-          <Pressable onPress={() => setPicking('b')}>
-            <Row
-              name="الخيار الثاني"
-              value={matterText(matterB)}
-              highlight={picking === 'b'}
-              last
-            />
-          </Pressable>
-        </Card>
-      ) : matter && !picking ? (
-        <Pressable onPress={() => setPicking('a')}>
-          <Text style={styles.chosen}>{`${matterText(matter)}  (تغيير)`}</Text>
-        </Pressable>
+        <MatterSelect
+          label="الخيار الثاني"
+          value={matterB}
+          allowIntention={false}
+          onChange={m => {
+            setMatterB(m);
+            reset();
+          }}
+        />
       ) : null}
-      {picking ? picker : null}
       {two &&
       matter &&
       matterB &&
@@ -375,12 +343,12 @@ export function HoraryScreen({
       matterB !== 'intention' &&
       matter.house === matterB.house ? (
         <Text style={styles.warn}>
-          الخياران من باب واحد (البيت نفسه)، فلا تفرق الخريطة بينهما. اختر
-          خيارين من بابين مختلفين، أو اسأل عن كل خيار في وقت مستقل.
+          الخياران من باب واحد، فلا تفرق الخريطة بينهما. اختر خيارين من بابين
+          مختلفين، أو اسأل عن كل خيار في وقت مستقل.
         </Text>
       ) : null}
 
-      {ready && !picking ? (
+      {ready ? (
         <>
           <Section title="لحظة السؤال ومكانه" />
           <Stepper
@@ -568,9 +536,6 @@ export function HoraryScreen({
                 style={[styles.logRow, i === all.length - 1 && styles.lastLine]}
               >
                 <Text style={styles.logTitle}>{e.label}</Text>
-                {e.question ? (
-                  <Text style={styles.logText}>{`«${e.question}»`}</Text>
-                ) : null}
                 <Text style={styles.logText}>
                   {`${formatJd(e.jd)} · ${e.headline}`}
                 </Text>
@@ -632,36 +597,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT,
     color: colors.gold,
     fontSize: 15,
-    textAlign: 'right',
-  },
-  picker: { gap: 14 },
-  intention: {
-    borderColor: colors.gold,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    gap: 4,
-    backgroundColor: colors.navyRaised,
-  },
-  intentionTitle: {
-    fontFamily: FONT,
-    color: colors.gold,
-    fontSize: 17,
-    fontWeight: '600',
-    textAlign: 'right',
-  },
-  intentionText: {
-    fontFamily: FONT,
-    color: colors.text,
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: 'right',
-  },
-  houseGroup: { gap: 8 },
-  houseTitle: {
-    fontFamily: FONT,
-    color: colors.muted,
-    fontSize: 13,
     textAlign: 'right',
   },
   chips: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
