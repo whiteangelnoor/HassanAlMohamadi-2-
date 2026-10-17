@@ -7,7 +7,18 @@
 import { HoraryJudgment, Join, PlanetState } from './horary';
 import { Planet } from './traditional';
 
-export type MatterKind = 'lost' | 'theft' | 'sick' | 'return' | 'pregnancy';
+export type MatterKind =
+  | 'lost'
+  | 'theft'
+  | 'sick'
+  | 'return'
+  | 'pregnancy'
+  | 'contest'
+  | 'marriage'
+  | 'jobGet'
+  | 'jobStay'
+  | 'sale'
+  | 'travel';
 
 export interface HoraryAnswer {
   verdict: 'yes' | 'no' | 'doubt';
@@ -133,6 +144,22 @@ export function horaryAnswer(
       return { ...base, ...absent(j, n) };
     case 'pregnancy':
       return { ...base, ...pregnancy(j, n) };
+    case 'contest':
+      return { ...base, ...contest(j, n) };
+    case 'marriage':
+      return {
+        ...base,
+        ...marriage(j, n),
+        person: describePerson(j.quesited),
+      };
+    case 'jobGet':
+      return { ...base, ...general(j, n, 'الأمر الوظيفي', false) };
+    case 'jobStay':
+      return { ...base, ...jobStay(j, n) };
+    case 'sale':
+      return { ...base, ...sale(j, n) };
+    case 'travel':
+      return { ...base, ...travel(j, n) };
     default:
       return {
         ...base,
@@ -144,8 +171,15 @@ export function horaryAnswer(
 
 // ---------- general questions -------------------------------------------------
 
-function general(j: HoraryJudgment, n: AnswerNames) {
-  const noun = HOUSE_NOUN[j.house - 1];
+function general(
+  j: HoraryJudgment,
+  n: AnswerNames,
+  nounOverride?: string,
+  otherParty = true,
+) {
+  const self = j.subject === 1;
+  const noun =
+    nounOverride ?? (self ? HOUSE_NOUN[j.house - 1] : 'الأمر المسؤول عنه');
   const A = j.querent;
   const B = j.quesited;
   const p: string[] = [];
@@ -172,18 +206,38 @@ function general(j: HoraryJudgment, n: AnswerNames) {
 
   p.push(
     weak(A)
-      ? 'موقفك الآن ضعيف، وفيه ضغط أو قلة حيلة.'
+      ? self
+        ? 'موقفك الآن ضعيف، وفيه ضغط أو قلة حيلة.'
+        : 'حال من تسأل عنه ضعيف الآن، وفيه ضغط أو قلة حيلة.'
       : strong(A)
-      ? 'موقفك قوي، ولك قدرة على التأثير في الأمر.'
+      ? self
+        ? 'موقفك قوي، ولك قدرة على التأثير في الأمر.'
+        : 'حال من تسأل عنه قوي، وله قدرة على أمره.'
       : A.retrograde
-      ? 'وفي موقفك تردد أو ميل إلى التراجع.'
-      : 'موقفك متوسط، لا ضعف ظاهر ولا قوة كبيرة.',
+      ? self
+        ? 'وفي موقفك تردد أو ميل إلى التراجع.'
+        : 'وفيه تردد أو ميل إلى التراجع.'
+      : self
+      ? 'موقفك متوسط، لا ضعف ظاهر ولا قوة كبيرة.'
+      : 'حال من تسأل عنه متوسط.',
   );
   if (A.house === j.house) {
-    p.push('والأمر يشغلك كثيراً وأنت ساعٍ إليه.');
+    p.push(
+      self
+        ? 'والأمر يشغلك كثيراً وأنت ساعٍ إليه.'
+        : 'والأمر يشغله كثيراً وهو ساعٍ إليه.',
+    );
   }
   p.push(
-    weak(B)
+    !otherParty
+      ? weak(B)
+        ? 'والأمر نفسه يمر بظرف صعب.'
+        : strong(B)
+        ? 'والأمر نفسه في حال جيدة.'
+        : B.retrograde
+        ? 'والأمر متأخر أو متعثر.'
+        : 'والأمر نفسه في حال عادية.'
+      : weak(B)
       ? 'والطرف الآخر أو الأمر نفسه يمر بظرف صعب.'
       : strong(B)
       ? 'والطرف الآخر أو الأمر نفسه في حال جيدة.'
@@ -192,11 +246,17 @@ function general(j: HoraryJudgment, n: AnswerNames) {
       : 'والطرف الآخر في حال عادية.',
   );
   if (j.reception === 'mutual') {
-    p.push('وبينكما رغبة متبادلة.');
+    p.push('وبين الطرفين رغبة متبادلة.');
   } else if (j.reception === 'matterReceives') {
-    p.push('والطرف الآخر يرحّب بك ويريدك.');
+    p.push(
+      self ? 'والطرف الآخر يرحّب بك ويريدك.' : 'والطرف الآخر يرحّب به ويريده.',
+    );
   } else if (j.reception === 'querentReceives') {
-    p.push('ورغبتك في الأمر أكبر من رغبة الطرف الآخر فيه.');
+    p.push(
+      self
+        ? 'ورغبتك في الأمر أكبر من رغبة الطرف الآخر فيه.'
+        : 'ورغبته في الأمر أكبر من رغبة الطرف الآخر فيه.',
+    );
   }
   if (j.moonNext) {
     if (BENEFIC.includes(j.moonNext.b)) {
@@ -225,9 +285,9 @@ function describePerson(s: PlanetState): string {
 // ---------- illness ---------------------------------------------------------------
 
 function sick(j: HoraryJudgment, n: AnswerNames) {
-  const ascLord = j.lords[0];
-  const illLord = j.lords[5];
-  const deathLord = j.lords[7];
+  const ascLord = j.relLords[0];
+  const illLord = j.relLords[5];
+  const deathLord = j.relLords[7];
   const A = j.states[ascLord];
   const I = j.states[illLord];
   const p: string[] = [];
@@ -279,9 +339,9 @@ function sick(j: HoraryJudgment, n: AnswerNames) {
 
 function lost(j: HoraryJudgment, n: AnswerNames, kind: 'lost' | 'theft') {
   const S = j.states;
-  const ascLord = j.lords[0];
-  const lord2 = j.lords[1];
-  const lord7 = j.lords[6];
+  const ascLord = j.relLords[0];
+  const lord2 = j.relLords[1];
+  const lord7 = j.relLords[6];
   const T = S[lord2];
   const p: string[] = [];
 
@@ -400,7 +460,7 @@ function lost(j: HoraryJudgment, n: AnswerNames, kind: 'lost' | 'theft') {
 
 function absent(j: HoraryJudgment, n: AnswerNames) {
   const B = j.quesited;
-  const ascLord = j.lords[0];
+  const ascLord = j.relLords[0];
   const p: string[] = [];
   let score = 0;
   const toAsc = B.planet !== ascLord ? j.joinOf(B.planet, ascLord) : null;
@@ -450,8 +510,8 @@ function absent(j: HoraryJudgment, n: AnswerNames) {
 
 function pregnancy(j: HoraryJudgment, n: AnswerNames) {
   const S = j.states;
-  const ascLord = j.lords[0];
-  const lord5 = j.lords[4];
+  const ascLord = j.relLords[0];
+  const lord5 = j.relLords[4];
   const FRUITFUL = [3, 7, 11];
   const BARREN = [2, 4, 5];
   let score = 0;
@@ -489,6 +549,231 @@ function pregnancy(j: HoraryJudgment, n: AnswerNames) {
   ];
   const when = join ? `يتضح الأمر نحو ${n.date(join.jd)}.` : null;
   return { verdict, headline, paragraphs: p, when };
+}
+
+// ---------- contests and lawsuits -------------------------------------------------
+
+const houseFrom = (j: HoraryJudgment, h: number) =>
+  ((j.subject - 1 + h - 1) % 12) + 1;
+const planetsIn = (j: HoraryJudgment, house: number) =>
+  (Object.values(j.states) as PlanetState[]).filter(s => s.house === house);
+
+function contest(j: HoraryJudgment, n: AnswerNames) {
+  const A = j.querent;
+  const B = j.quesited; // lord of the seventh: the opponent
+  const h1 = houseFrom(j, 1);
+  const h7 = houseFrom(j, 7);
+  const judgeLord = j.relLords[9];
+  const p: string[] = [];
+  let score = power(A) - power(B);
+  p.push(
+    score > 0
+      ? 'جانبك أقوى من جانب الخصم.'
+      : score < 0
+      ? 'جانب الخصم أقوى في الوقت الحاضر.'
+      : 'الطرفان متقاربان في القوة.',
+  );
+  const side = (h: number) =>
+    planetsIn(j, h).reduce(
+      (acc, s) =>
+        acc +
+        (BENEFIC.includes(s.planet) ? 1 : MALEFIC.includes(s.planet) ? -1 : 0),
+      0,
+    );
+  const help = side(h1) - side(h7);
+  if (help > 0) {
+    p.push('ومعك عون وسند.');
+  } else if (help < 0) {
+    p.push('وللخصم عون أو لك عائق.');
+  }
+  score += help;
+  if (B.house === h1) {
+    p.push('والخصم يأتي إليك ويخضع لك.');
+    score += 2;
+  }
+  if (A.house === h7) {
+    p.push('وأنت تذهب إلى الخصم وتلين له.');
+    score -= 2;
+  }
+  if (judgeLord !== A.planet && judgeLord !== B.planet) {
+    const toA = j.joinOf(judgeLord, A.planet);
+    const toB = j.joinOf(judgeLord, B.planet);
+    if (toA && !toB) {
+      p.push('والحاكم أو صاحب الأمر يميل إليك.');
+      score += 1;
+    } else if (toB && !toA) {
+      p.push('والحاكم أو صاحب الأمر يميل إلى الخصم.');
+      score -= 1;
+    }
+  }
+  if (j.perfection && j.reception) {
+    return {
+      verdict: 'doubt' as const,
+      headline: 'يميل الأمر إلى الصلح بين الطرفين.',
+      paragraphs: p,
+      when: `يُتوقع الصلح نحو ${n.date(j.perfection.jd)}.`,
+    };
+  }
+  const verdict: HoraryAnswer['verdict'] =
+    score >= 2 ? 'yes' : score <= -2 ? 'no' : 'doubt';
+  return {
+    verdict,
+    headline:
+      verdict === 'yes'
+        ? 'الغلبة لك.'
+        : verdict === 'no'
+        ? 'الغلبة للخصم.'
+        : 'الطرفان متكافئان، والأمر غير محسوم.',
+    paragraphs: p,
+    when: j.perfection ? `يُحسم الأمر نحو ${n.date(j.perfection.jd)}.` : null,
+  };
+}
+
+// ---------- marriage -----------------------------------------------------------------
+
+function marriage(j: HoraryJudgment, n: AnswerNames) {
+  const g = general(j, n, 'الزواج');
+  const p = [...g.paragraphs];
+  const fixed = (s: PlanetState) => signOf(s.lon) % 3 === 1;
+  if (j.perfection) {
+    const soft = ['conjunction', 'trine', 'sextile'].includes(
+      j.perfection.kind,
+    );
+    if (soft && fixed(j.querent) && fixed(j.quesited)) {
+      p.push('والدلائل في بروج ثابتة: زواج يدوم.');
+    } else if (!soft) {
+      p.push('وفي الاتصال شدّة: يكون في الزواج خلاف يحتاج إلى صبر.');
+    }
+  }
+  if (planetsIn(j, houseFrom(j, 7)).some(s => MALEFIC.includes(s.planet))) {
+    p.push('وفي بيت الزواج ما يدل على خصام أو تعب.');
+  }
+  return { ...g, paragraphs: p };
+}
+
+// ---------- staying in work --------------------------------------------------------
+
+function jobStay(j: HoraryJudgment, _n: AnswerNames) {
+  const A = j.querent;
+  const work = j.relLords[9];
+  const p: string[] = [];
+  let score = 0;
+  if (A.house === houseFrom(j, 10)) {
+    p.push('أنت متمكن في عملك.');
+    score += 2;
+  }
+  if (A.planet !== work && j.joinOf(A.planet, work)) {
+    p.push('وأنت متجه إلى عملك ومتعلق به.');
+    score += 1;
+  }
+  const leaving = j.aspectsNow.some(
+    x =>
+      !x.applying &&
+      ((x.a === A.planet && x.b === work) ||
+        (x.b === A.planet && x.a === work)),
+  );
+  if (leaving) {
+    p.push('وفي الخريطة انفصال عن العمل.');
+    score -= 2;
+  }
+  const deg = norm(A.lon) % 30;
+  if (deg > 28 && !A.retrograde) {
+    p.push('ودليلك على وشك الخروج من برجه: تغيير قريب في وضعك.');
+    score -= 1;
+  }
+  if (A.retrograde) {
+    p.push('وفيك ميل إلى الرجوع عن هذا العمل.');
+    score -= 1;
+  }
+  if (strong(j.states[work])) {
+    p.push('والعمل نفسه في حال جيدة.');
+  } else if (weak(j.states[work])) {
+    p.push('والعمل نفسه يمر بظرف صعب.');
+  }
+  const verdict: HoraryAnswer['verdict'] =
+    score >= 1 ? 'yes' : score <= -2 ? 'no' : 'doubt';
+  return {
+    verdict,
+    headline:
+      verdict === 'yes'
+        ? 'تبقى في عملك.'
+        : verdict === 'no'
+        ? 'الأرجح أنك تترك هذا العمل.'
+        : 'البقاء في العمل غير محسوم.',
+    paragraphs: p,
+    when: null,
+  };
+}
+
+// ---------- buying and selling ------------------------------------------------------
+
+function sale(j: HoraryJudgment, n: AnswerNames) {
+  const seller = j.relLords[6];
+  const buyer = j.relLords[0] === seller ? 'moon' : j.relLords[0];
+  const item = j.quesited;
+  const deal = buyer !== seller ? j.joinOf(buyer, seller) : null;
+  const p: string[] = [];
+  p.push(
+    deal
+      ? `يلتقي الطرفان ${EASE[deal.kind].replace(/^(و|لكن )/, '')}.`
+      : 'لا يلتقي البائع والمشتري على اتفاق في هذه المرحلة.',
+  );
+  p.push(
+    weak(item)
+      ? 'وفي الشيء المبيع عيب أو نقص ينبغي فحصه.'
+      : strong(item)
+      ? 'والشيء المبيع جيد.'
+      : 'والشيء المبيع عادي.',
+  );
+  if (j.house === houseFrom(j, 4)) {
+    const price = j.states[j.relLords[9]];
+    p.push(
+      strong(price)
+        ? 'والسعر مرتفع أو في حدّه الأعلى.'
+        : weak(price)
+        ? 'ويمكن الحصول عليه بسعر أقل.'
+        : 'والسعر معتدل.',
+    );
+  }
+  return {
+    verdict: (deal ? 'yes' : 'no') as HoraryAnswer['verdict'],
+    headline: deal ? 'تتم الصفقة.' : 'لا تتم الصفقة الآن.',
+    paragraphs: p,
+    when: deal ? `تتم نحو ${n.date(deal.jd)}.` : null,
+  };
+}
+
+// ---------- travel -------------------------------------------------------------------
+
+function travel(j: HoraryJudgment, n: AnswerNames) {
+  const g = general(j, n, 'السفر', false);
+  const p = [...g.paragraphs];
+  const inTravel = planetsIn(j, j.house);
+  let safety = 0;
+  if (inTravel.some(s => BENEFIC.includes(s.planet))) {
+    safety++;
+  }
+  if (inTravel.some(s => MALEFIC.includes(s.planet))) {
+    safety--;
+  }
+  if (weak(j.quesited)) {
+    safety--;
+  } else if (strong(j.quesited)) {
+    safety++;
+  }
+  if (j.moonNext && MALEFIC.includes(j.moonNext.b)) {
+    safety--;
+  }
+  if (g.verdict !== 'no') {
+    p.push(
+      safety > 0
+        ? 'والسفر سالم مريح، وفيه فائدة.'
+        : safety < 0
+        ? 'وفي الطريق تعب أو عائق، فيُحتاط له.'
+        : 'والطريق عادي.',
+    );
+  }
+  return { ...g, paragraphs: p };
 }
 
 // ---------- the evidence, for whoever wants it ----------------------------------------

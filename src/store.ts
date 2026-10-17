@@ -180,3 +180,48 @@ export function openExactAlarmSettings() {
     // nothing to open on this phone
   }
 }
+
+// ---------- horary log ------------------------------------------------------------------
+
+export interface HoraryEntry {
+  id: string;
+  jd: number;
+  question: string;
+  label: string;
+  verdict: 'yes' | 'no' | 'doubt';
+  headline: string;
+  /** What came of it, marked later by the user. */
+  result: 'yes' | 'no' | null;
+}
+
+const HORARY_MAX = 200;
+
+export function loadHoraryLog(): HoraryEntry[] {
+  return readJson<HoraryEntry[]>('horaryLog', []);
+}
+
+export function addHoraryEntry(e: Omit<HoraryEntry, 'id' | 'result'>) {
+  const entry: HoraryEntry = {
+    ...e,
+    id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    result: null,
+  };
+  write(
+    'horaryLog',
+    JSON.stringify([entry, ...loadHoraryLog()].slice(0, HORARY_MAX)),
+  );
+  return entry;
+}
+
+export function markHoraryEntry(id: string, result: 'yes' | 'no' | null) {
+  write(
+    'horaryLog',
+    JSON.stringify(
+      loadHoraryLog().map(x => (x.id === id ? { ...x, result } : x)),
+    ),
+  );
+}
+
+export function deleteHoraryEntry(id: string) {
+  write('horaryLog', JSON.stringify(loadHoraryLog().filter(x => x.id !== id)));
+}

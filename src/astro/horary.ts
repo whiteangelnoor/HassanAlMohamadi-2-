@@ -87,7 +87,11 @@ export interface Testimony {
 export interface HoraryJudgment {
   chart: ChartResult;
   jd: number;
-  house: number; // house of the matter
+  house: number; // house of the matter, counted from the Ascendant
+  /** House of the person asked about (1 = the querent); 'house' derives from it. */
+  subject: number;
+  /** Lords of the twelve houses counted from the subject's house. */
+  relLords: Planet[];
   /** For an unspoken question: how its house was found. */
   intention: { by: Planet; via: 'moon' | 'hour' } | null;
   querent: PlanetState;
@@ -192,6 +196,132 @@ function signExit(t: Tracks, p: Planet, from: number): number {
   return next ? next.jd : Infinity;
 }
 
+/** When the planet last entered its present sign. */
+function signEntry(t: Tracks, p: Planet, at: number): number {
+  const list = ingresses(t[p], p).filter(i => i.jd <= at);
+  return list.length ? list[list.length - 1].jd : -Infinity;
+}
+
+/** The first station (turn of direction) of a planet in (from, until]. */
+export function stationAfter(
+  t: Tracks,
+  p: Planet,
+  from: number,
+  until: number,
+): number | null {
+  const tr = t[p];
+  for (let i = 0; i + 1 < tr.speed.length; i++) {
+    const a = tr.start + i * tr.step;
+    const b = a + tr.step;
+    if (b <= from || a > until) {
+      continue;
+    }
+    if (tr.speed[i] * tr.speed[i + 1] < 0) {
+      // Linear zero of the speed between the samples.
+      const u = tr.speed[i] / (tr.speed[i] - tr.speed[i + 1]);
+      const at = a + u * tr.step;
+      if (at > from && at <= until) {
+        return at;
+      }
+    }
+  }
+  return null;
+}
+
+/** Mean daily motions (Lilly). */
+const MEAN_SPEED: Record<Planet, number> = {
+  sun: 0.9856,
+  moon: 13.1764,
+  mercury: 0.9856,
+  venus: 0.9856,
+  mars: 0.524,
+  jupiter: 0.083,
+  saturn: 0.0336,
+};
+
+const HORARY_STARS: {
+  name: string;
+  arabic: string;
+  meaning: string;
+  weight: 1 | -1 | 0;
+}[] = [
+  {
+    name: 'Algol',
+    arabic: 'رأس الغول',
+    meaning: 'نجم شؤم، خطر وأذى',
+    weight: -1,
+  },
+  {
+    name: 'Antares',
+    arabic: 'قلب العقرب',
+    meaning: 'خصومة وعنف، ونجاح يعقبه سقوط',
+    weight: -1,
+  },
+  {
+    name: 'Regulus',
+    arabic: 'قلب الأسد',
+    meaning: 'رفعة ونجاح وجاه',
+    weight: 1,
+  },
+  {
+    name: 'Spica',
+    arabic: 'السماك الأعزل',
+    meaning: 'نعمة وحماية وتيسير',
+    weight: 1,
+  },
+  {
+    name: 'Aldebaran',
+    arabic: 'الدبران',
+    meaning: 'نجاح وشرف مع خطر',
+    weight: 0,
+  },
+];
+
+function houseOfLon(chart: ChartResult, lon: number): number {
+  const cusps = chart.houses!.cusps;
+  for (let h = 0; h < 12; h++) {
+    const a = cusps[h];
+    const b = cusps[(h + 1) % 12];
+    if (norm(lon - a) < norm(b - a)) {
+      return h + 1;
+    }
+  }
+  return 12;
+}
+
+/** The Arabic lot belonging to a house's matter, where one is used. */
+function matterLot(
+  chart: ChartResult,
+  rel: number,
+  day: boolean,
+  lordOf: (h: number) => Planet,
+  st: (c: ChartResult, p: Planet, d: boolean) => PlanetState,
+): { name: string; lon: number } | null {
+  const h = chart.houses!;
+  const L = (p: Planet) => st(chart, p, day).lon;
+  const lot = (plus: number, minus: number) => norm(h.asc + plus - minus);
+  switch (rel) {
+    case 2:
+      return { name: 'سهم المال', lon: lot(h.cusps[1], L(lordOf(2))) };
+    case 5:
+      return {
+        name: 'سهم الأولاد',
+        lon: day
+          ? lot(L('jupiter'), L('saturn'))
+          : lot(L('saturn'), L('jupiter')),
+      };
+    case 6:
+      return {
+        name: 'سهم المرض',
+        lon: day ? lot(L('mars'), L('saturn')) : lot(L('saturn'), L('mars')),
+      };
+    case 9:
+      return { name: 'سهم السفر', lon: lot(h.cusps[8], L(lordOf(9))) };
+    default:
+      return null;
+  }
+}
+
 // ---------- the judgment ----------------------------------------------------------
 
 export const SIGN_MODALITY = ['cardinal', 'fixed', 'mutable'] as const;
@@ -243,6 +373,7 @@ export function judge(
   place: { lat: number; lon: number },
   asked: number | 'intention',
   names: HoraryNames,
+  subjectHouse = 1,
 ): HoraryJudgment {
   const chart = AstroEngine.chart({
     zodiac: { type: 'tropical' },
@@ -297,19 +428,25 @@ export function judge(
   }
   // An unspoken question: the matter is read from the chart itself.
   let intention: HoraryJudgment['intention'] = null;
-  let house: number;
+  let rel: number;
+  const subject = asked === 'intention' ? 1 : subjectHouse;
   if (asked === 'intention') {
     const found = intentionHouse(chart, moonNext, hourLord);
-    house = found ? found.house : 1;
+    rel = found ? found.house : 1;
     intention = found ? { by: found.by, via: found.via } : null;
   } else {
-    house = asked;
+    rel = asked;
   }
+  // Turned houses: a matter of another person is counted from that
+  // person's house (the mother's illness is the sixth from the tenth).
+  const from = (h: number) => ((subject - 1 + h - 1) % 12) + 1;
+  const house = from(rel);
   const ascLord = lordOf(1);
+  const subjectLord = lordOf(subject);
   const matterLord = lordOf(house);
-  const sameLord = ascLord === matterLord;
-  // One planet cannot join itself: the Moon then signifies the querent.
-  const A: Planet = sameLord ? 'moon' : ascLord;
+  const sameLord = subjectLord === matterLord;
+  // One planet cannot join itself: the Moon then signifies the asker's side.
+  const A: Planet = sameLord ? 'moon' : subjectLord;
   const B: Planet = matterLord;
   const sA = state(chart, A, day);
   const sB = state(chart, B, day);
@@ -344,8 +481,16 @@ export function judge(
     );
   }
 
-  const moonVoid = moonNext === null;
-  if (moonVoid) {
+  const moonSign = Math.floor(norm(sMoon.lon) / 30);
+  // Void in Taurus, Cancer, Sagittarius or Pisces harms less (Lilly).
+  const voidExcepted = [1, 3, 8, 11].includes(moonSign);
+  const moonVoid = moonNext === null && !voidExcepted;
+  if (moonNext === null && voidExcepted) {
+    tests.push({
+      text: 'القمر خالي السير، لكنه في برج يُستثنى فيه خلوّ السير (الثور أو السرطان أو القوس أو الحوت)، فلا يُبطل الأمر.',
+      weight: 0,
+    });
+  } else if (moonVoid) {
     tests.push({
       text: 'القمر خالي السير: لا يتصل بكوكب قبل خروجه من برجه، وأكثر ما يدل عليه أن لا يكون من الأمر شيء.',
       weight: -1,
@@ -358,6 +503,24 @@ export function judge(
         moonNext.kind,
       )}${benefic ? '، وهو سعد' : malefic ? '، وهو نحس' : ''}.`,
       weight: benefic ? 1 : malefic ? -1 : 0,
+    });
+  }
+
+  // The Moon's light: waxing helps; just before the new Moon she is spent.
+  const sunLon = state(chart, 'sun', day).lon;
+  const elong = norm(sMoon.lon - sunLon);
+  if (elong > 348) {
+    tests.push({
+      text: 'القمر قبيل المحاق، نوره ذاهب: ضعف في الأمر وخفاء.',
+      weight: -1,
+    });
+  } else {
+    tests.push({
+      text:
+        elong < 180
+          ? 'نور القمر زائد: الأمر في نماء.'
+          : 'نور القمر ناقص: الأمر يميل إلى النقصان أو الخفاء.',
+      weight: 0,
     });
   }
 
@@ -428,19 +591,19 @@ export function judge(
       if (sc <= Math.abs(sA.speed) || sc <= Math.abs(sB.speed)) {
         continue;
       }
-      for (const [from, to] of [
+      for (const [src, to] of [
         [A, B],
         [B, A],
       ] as [Planet, Planet][]) {
-        const last = lastJoin(t, C, from, jd);
+        const last = lastJoin(t, C, src, jd);
         if (!last) {
           continue;
         }
-        const moiety = (ORB[C] + ORB[from]) / 2;
+        const moiety = (ORB[C] + ORB[src]) / 2;
         const target = ASPECTS.find(x => x.kind === last.kind)!.targets;
         const sep = Math.min(
           ...target.map(g =>
-            Math.abs(wrap(lonAt(t[C], jd) - lonAt(t[from], jd) - g)),
+            Math.abs(wrap(lonAt(t[C], jd) - lonAt(t[src], jd) - g)),
           ),
         );
         if (sep > moiety) {
@@ -512,6 +675,123 @@ export function judge(
     });
   }
 
+  // Refranation: applying now, but one turns about before the aspect is exact.
+  if (!perfection) {
+    const nowApplying = aspectsInOrb(chart).some(
+      x => x.applying && ((x.a === A && x.b === B) || (x.a === B && x.b === A)),
+    );
+    const turn = [A, B]
+      .map(p => ({ p, jd: stationAfter(t, p, jd, limit) }))
+      .filter(x => x.jd !== null)
+      .sort((x, y) => x.jd! - y.jd!)[0];
+    if (nowApplying && turn) {
+      tests.push({
+        text: `ردّ النور: ${N(A)} و${N(B)} يتقاربان، لكن ${N(
+          turn.p,
+        )} يقف ويرجع قبل تمام الاتصال؛ يقترب الأمر ثم ينقلب أحد الطرفين عنه.`,
+        weight: -1,
+      });
+    }
+  }
+
+  // Besiegement: between Mars and Saturn, leaving one and meeting the other.
+  for (const S of A === B ? [A] : [A, B]) {
+    const entry = signEntry(t, S, jd);
+    const last = PLANETS.filter(x => x !== S)
+      .map(x => lastJoin(t, S, x, jd))
+      .filter((x): x is Join => x !== null && x.jd > entry)
+      .sort((x, y) => y.jd - x.jd)[0];
+    const next = PLANETS.filter(x => x !== S)
+      .map(x => nextJoin(t, S, x, jd, exit(S)))
+      .filter((x): x is Join => x !== null)
+      .sort((x, y) => x.jd - y.jd)[0];
+    if (
+      last &&
+      next &&
+      ((last.b === 'mars' && next.b === 'saturn') ||
+        (last.b === 'saturn' && next.b === 'mars'))
+    ) {
+      tests.push({
+        text: `${N(S)} محاصَر بين النحسين (انفصل عن ${N(last.b)} ويتصل بـ${N(
+          next.b,
+        )}): ضيق وتعطيل.`,
+        weight: -1,
+      });
+    }
+  }
+
+  // Speed: slow significators delay, fast ones hasten.
+  for (const S of A === B ? [A] : [A, B]) {
+    if (S === 'sun') {
+      continue;
+    }
+    const sp = state(chart, S, day).speed;
+    const v = Math.abs(sp);
+    if (sp < 0) {
+      continue; // retrograde is judged on its own
+    }
+    if (v < MEAN_SPEED[S] * 0.7) {
+      tests.push({ text: `${N(S)} بطيء السير: تأخير وإبطاء.`, weight: 0 });
+    } else if (v > MEAN_SPEED[S] * 1.2) {
+      tests.push({ text: `${N(S)} سريع السير: تعجيل.`, weight: 0 });
+    }
+  }
+
+  // Fixed stars on the angles or the significators (within 1°).
+  try {
+    const stars = AstroEngine.fixedStars({
+      zodiac: { type: 'tropical' },
+      time: { jdUt: jd },
+      names: HORARY_STARS.map(x => x.name),
+    }).stars;
+    const points: [string, number][] = [
+      ['الطالع', houses.asc],
+      ['وسط السماء', houses.mc],
+      [`${N(A)} (دليل السائل)`, sA.lon],
+      [`${N(B)} (دليل المسألة)`, state(chart, B, day).lon],
+    ];
+    stars.forEach((st, i) => {
+      for (const [label, lon] of points) {
+        if (Math.abs(wrap(st.lon - lon)) <= 1) {
+          const info = HORARY_STARS[i];
+          tests.push({
+            text: `${info.arabic} على ${label}: ${info.meaning}.`,
+            weight: info.weight,
+          });
+        }
+      }
+    });
+  } catch {
+    // no star file on this device: the stars are left out
+  }
+
+  // The lot of the matter (from the Ascendant, for the querent's own matters).
+  if (subject === 1) {
+    const lot = matterLot(chart, rel, day, lordOf, state);
+    if (lot) {
+      const lotHouse = houseOfLon(chart, lot.lon);
+      const near = PLANETS.filter(
+        p => Math.abs(wrap(state(chart, p, day).lon - lot.lon)) <= 5,
+      );
+      const good = near.filter(p => p === 'jupiter' || p === 'venus');
+      const bad = near.filter(p => p === 'saturn' || p === 'mars');
+      const weightOf: 1 | -1 | 0 =
+        good.length > bad.length
+          ? 1
+          : bad.length > good.length || [6, 8, 12].includes(lotHouse)
+          ? -1
+          : 0;
+      tests.push({
+        text: `${lot.name} في البيت ${lotHouse}${
+          good.length ? ` مع ${good.map(N).join(' و')}` : ''
+        }${bad.length ? ` مع ${bad.map(N).join(' و')}` : ''}${
+          [6, 8, 12].includes(lotHouse) ? '، وهو بيت ساقط' : ''
+        }.`,
+        weight: weightOf,
+      });
+    }
+  }
+
   // Reception.
   const BreceivesA = receives(B, sA.lon);
   const AreceivesB = receives(A, sB.lon);
@@ -577,7 +857,10 @@ export function judge(
       });
     }
   };
-  condition(sA, sameLord ? 'شريك السائل' : 'السائل');
+  condition(
+    sA,
+    sameLord ? 'شريك السائل' : subject === 1 ? 'السائل' : 'صاحب الشأن',
+  );
   condition(sB, 'المسألة');
 
   if (hourLord) {
@@ -656,6 +939,8 @@ export function judge(
     chart,
     jd,
     house,
+    subject,
+    relLords: Array.from({ length: 12 }, (_, i) => lordOf(from(i + 1))),
     intention,
     querent: sA,
     quesited: sB,

@@ -171,7 +171,30 @@ export const MATTER_KIND: Record<string, MatterKind> = {
   'هل يعود الزوج أو الحبيب': 'return',
   الحمل: 'pregnancy',
   'هل حامل أم لا': 'pregnancy',
+  'الخصم والقضية والنزاع': 'contest',
+  الزواج: 'marriage',
+  الخطبة: 'marriage',
+  'الوظيفة: هل أحصل عليها': 'jobGet',
+  'الترقية والمنصب': 'jobGet',
+  'هل أبقى في عملي': 'jobStay',
+  'شراء بيت أو أرض': 'sale',
+  'بيع بيت أو عقار': 'sale',
+  'شراء أو بيع شيء منقول': 'sale',
+  'سفر بعيد أو هجرة': 'travel',
+  'سفر قريب': 'travel',
 };
+
+/** Whose matter the question is: the house of that person from the Ascendant. */
+export const SUBJECTS: { house: number; label: string }[] = [
+  { house: 1, label: 'عن نفسي' },
+  { house: 10, label: 'الأم' },
+  { house: 4, label: 'الأب' },
+  { house: 7, label: 'الزوج أو الشريك' },
+  { house: 3, label: 'الأخ أو الأخت' },
+  { house: 5, label: 'الابن أو البنت' },
+  { house: 11, label: 'صديق' },
+  { house: 7, label: 'شخص آخر' },
+];
 
 /** Houses whose matters are mostly people, to be described. */
 export const PERSON_HOUSES = [3, 4, 5, 7, 10, 11, 12];

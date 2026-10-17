@@ -567,4 +567,63 @@ run('horary judgment', () => {
       }
     }
   });
+
+  test('turned houses: the mother’s illness is the sixth from the tenth', () => {
+    const r = judge(moments[2], place, 6, names, 10);
+    expect(r.subject).toBe(10);
+    expect(r.house).toBe(3);
+    const cusps = r.chart.houses.cusps;
+    expect(r.quesited.planet).toBe(rulersAt(cusps[2]).domicile);
+    const motherLord = rulersAt(cusps[9]).domicile;
+    expect(r.querent.planet).toBe(
+      motherLord === r.quesited.planet ? 'moon' : motherLord,
+    );
+    for (let k = 0; k < 12; k++) {
+      expect(r.relLords[k]).toBe(rulersAt(cusps[(9 + k) % 12]).domicile);
+    }
+  });
+
+  test('a station found on the track is a real change of direction', () => {
+    const { stationAfter } = require('../src/astro/horary');
+    const { tracks: tr } = require('../src/astro/events');
+    const t = tr(['mercury'], base - 2, base + 120, 1, {
+      zodiac: { type: 'tropical' },
+    });
+    const jd = stationAfter(t, 'mercury', base, base + 120);
+    expect(jd).not.toBeNull();
+    const speed = (x: number) =>
+      AstroEngine.chart({ time: { jdUt: x }, bodies: ['mercury'] }).bodies[0]
+        .lonSpeed;
+    expect(Math.sign(speed(jd - 1))).not.toBe(Math.sign(speed(jd + 1)));
+  });
+
+  test('new chapters answer in plain words', () => {
+    const { horaryAnswer } = require('../src/astro/horaryAnswer');
+    const cases: [string, number, number][] = [
+      ['contest', 7, 1],
+      ['marriage', 7, 1],
+      ['jobGet', 10, 1],
+      ['jobStay', 10, 1],
+      ['sale', 4, 1],
+      ['travel', 9, 1],
+      ['sick', 6, 10],
+      [undefined as any, 2, 3],
+    ];
+    for (const [i, [kind, house, subj]] of cases.entries()) {
+      const r = judge(moments[i % moments.length], place, house, names, subj);
+      const a = horaryAnswer(r, kind, true, {
+        planet: (p: string) => p,
+        date: (x: number) => String(x),
+      });
+      expect(JSON.stringify(a)).not.toMatch(/undefined|NaN/);
+      expect(['yes', 'no', 'doubt']).toContain(a.verdict);
+      const plain = [a.headline, ...a.paragraphs].join(' ');
+      for (const p of ['saturn', 'jupiter', 'mars', 'venus', 'mercury']) {
+        expect(plain).not.toContain(p);
+      }
+      if (subj !== 1 && !kind) {
+        expect(plain).not.toContain('موقفك');
+      }
+    }
+  });
 });
