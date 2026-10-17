@@ -8,6 +8,7 @@ import { RULES_2 } from './ramlRules2';
 import { RULES_3 } from './ramlRules3';
 import { RULES_4 } from './ramlRules4';
 import { RULES_5 } from './ramlRules5';
+import { RULES_6 } from './ramlRules6';
 
 export const BOOK_RULES: BookRule[] = [
   ...RULES_1,
@@ -15,6 +16,7 @@ export const BOOK_RULES: BookRule[] = [
   ...RULES_3,
   ...RULES_4,
   ...RULES_5,
+  ...RULES_6,
 ];
 
 /** The fields that have at least one question, in the fixed order. */

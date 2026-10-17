@@ -25,6 +25,7 @@ import {
   randomHandfuls,
 } from '../spiritual/qura';
 import { BOOK_FIELDS, BOOK_RULES, rulesOf } from '../spiritual/ramlBook';
+import { LOT_ANSWERS, LOT_QUESTIONS } from '../spiritual/qura16';
 import { RamlField, RuleAnswer } from '../spiritual/ramlKit';
 import { Matter, MatterSelect } from './HoraryScreen';
 import { Card, Hint, Row, Section, Stepper } from './list';
@@ -172,8 +173,10 @@ function FigureView({ f, label }: { f: Figure; label?: string }) {
   );
 }
 
+type Mode = 'shield' | 'qura' | 'lot';
+
 export function RamlScreen({ onBack }: { onBack: () => void }) {
-  const [qura, setQura] = useState(false);
+  const [mode, setMode] = useState<Mode>('shield');
   return (
     <ScrollView
       contentContainerStyle={styles.content}
@@ -181,21 +184,72 @@ export function RamlScreen({ onBack }: { onBack: () => void }) {
     >
       <Header title="الرمل" onBack={onBack} />
       <Stepper
-        items={[
-          {
-            label: 'الزائجة الكاملة',
-            active: !qura,
-            onPress: () => setQura(false),
-          },
-          {
-            label: 'قرعة الضمير',
-            active: qura,
-            onPress: () => setQura(true),
-          },
-        ]}
+        items={(
+          [
+            ['shield', 'الزائجة الكاملة'],
+            ['lot', 'قرعة الأسئلة'],
+            ['qura', 'قرعة الضمير'],
+          ] as [Mode, string][]
+        ).map(([m, label]) => ({
+          label,
+          active: mode === m,
+          onPress: () => setMode(m),
+        }))}
       />
-      {qura ? <QuraView /> : <ShieldView />}
+      {mode === 'qura' ? (
+        <QuraView />
+      ) : mode === 'lot' ? (
+        <LotView />
+      ) : (
+        <ShieldView />
+      )}
     </ScrollView>
+  );
+}
+
+/** The lot of sixteen questions (ص٣٦٨): one figure, one question. */
+function LotView() {
+  const [q, setQ] = useState<number | null>(null);
+  const [figure, setFigure] = useState<Figure | null>(null);
+  const answer = figure && q !== null ? LOT_ANSWERS[figure.join('')][q] : null;
+  return (
+    <>
+      <Select
+        label="السؤال"
+        value={q === null ? null : LOT_QUESTIONS[q]}
+        placeholder="اختر سؤالك"
+        options={LOT_QUESTIONS}
+        onChange={v => {
+          setQ(LOT_QUESTIONS.indexOf(v));
+          setFigure(null);
+        }}
+      />
+      <Hint>أضمر سؤالك، ثم اضغط «اسحب القرعة».</Hint>
+      <Button
+        label={figure ? 'اسحب من جديد' : 'اسحب القرعة'}
+        onPress={() => q !== null && setFigure(castQura(randomHandfuls()))}
+      />
+      {q === null ? <Hint>اختر السؤال أولاً.</Hint> : null}
+      {figure && answer ? (
+        <>
+          <View style={styles.figRow}>
+            <FigureView f={figure} />
+          </View>
+          <View style={[styles.verdict, { borderColor: colors.gold }]}>
+            <Text style={[styles.headline, { color: colors.gold }]}>
+              {answer}
+            </Text>
+            <Text style={styles.body}>
+              خرج شكل «{figureInfo(figure).name}» لسؤال «{LOT_QUESTIONS[q!]}».
+            </Text>
+          </View>
+        </>
+      ) : null}
+      <Hint>
+        من «باب قرعة رملية» في الفلك المشحون (ص٣٦٨): أربعة أسطر نقاط تعطي شكلاً
+        واحداً، ومن الشكل ورقم السؤال يُعرف الحرف، ومن جدول الحرف يُقرأ الجواب.
+      </Hint>
+    </>
   );
 }
 

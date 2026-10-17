@@ -200,6 +200,40 @@ run('new screens with the real engine', () => {
     expect(out).toContain('الأحكام العامة للضرب');
   });
 
+  test('قرعة الأسئلة: a question and one press give the answer', async () => {
+    jest.useFakeTimers();
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<RamlScreen onBack={() => {}} />);
+    });
+    const mode = tree!.root.findAll(
+      (n: any) =>
+        Array.isArray(n.props.items) &&
+        n.props.items.some((i: any) => i.label === 'قرعة الأسئلة'),
+    );
+    await ReactTestRenderer.act(async () => {
+      mode[0].props.items[1].onPress();
+    });
+    const q = tree!.root.findAll(
+      (n: any) =>
+        n.props.label === 'السؤال' && typeof n.props.onChange === 'function',
+    )[0];
+    await ReactTestRenderer.act(async () => {
+      q.props.onChange('هل ينجح سفري؟');
+    });
+    const draw = tree!.root.findAll(
+      (n: any) =>
+        n.props.label === 'اسحب القرعة' &&
+        typeof n.props.onPress === 'function',
+    );
+    await ReactTestRenderer.act(async () => {
+      draw[0].props.onPress();
+    });
+    jest.useRealTimers();
+    const out = JSON.stringify(tree!.toJSON());
+    expect(out).toContain('لسؤال «');
+  });
+
   test('قرعة الضمير: one press draws one figure and its judgment', async () => {
     jest.useFakeTimers();
     let tree: ReactTestRenderer.ReactTestRenderer | undefined;
@@ -212,7 +246,7 @@ run('new screens with the real engine', () => {
         n.props.items.some((i: any) => i.label === 'قرعة الضمير'),
     );
     await ReactTestRenderer.act(async () => {
-      mode[0].props.items[1].onPress();
+      mode[0].props.items[2].onPress();
     });
     const draw = tree!.root.findAll(
       (n: any) =>

@@ -322,3 +322,35 @@ test('قرعة الضمير: sixteen sections, four handfuls make one figure', (
     ).toBeGreaterThan(20);
   }
 });
+
+test('قرعة الأسئلة: sixteen answers for each of the sixteen figures', () => {
+  const { LOT_QUESTIONS, LOT_ANSWERS } = require('../src/spiritual/qura16');
+  const { FIGURES } = require('../src/spiritual/raml');
+  expect(LOT_QUESTIONS).toHaveLength(16);
+  expect(Object.keys(LOT_ANSWERS).sort()).toEqual(Object.keys(FIGURES).sort());
+  for (const k of Object.keys(LOT_ANSWERS)) {
+    expect(LOT_ANSWERS[k]).toHaveLength(16);
+    for (const a of LOT_ANSWERS[k]) {
+      expect(a.length).toBeGreaterThan(3);
+      // No answer foretells a death.
+      expect(a).not.toMatch(/يموت|الموت|دار البقاء|الرحيل من الدنيا|موته/);
+    }
+  }
+  // The table of letters runs in a cycle: الطريق answers question 1 from
+  // the table of ا, and the twelfth question asks about the child.
+  expect(LOT_ANSWERS['1111'][0]).toContain('تناله قريباً');
+  expect(LOT_ANSWERS['1111'][11]).toContain('ابناً');
+});
+
+test('إخراج الضمير: the asker, the mind and both together', () => {
+  const { RULES_6 } = require('../src/spiritual/ramlRules6');
+  const { castShield, randomCounts } = require('../src/spiritual/raml');
+  let r = 3;
+  const rand = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 200; i++) {
+    const a = RULES_6[0].judge(castShield(randomCounts(rand)));
+    expect(a.verdict).toBe('info');
+    expect(a.headline.length).toBeGreaterThan(10);
+    expect(a.lines).toHaveLength(3);
+  }
+});
