@@ -42,6 +42,8 @@ export interface ChartInfo {
   lines: string[]; // shown under the title, e.g. place and times
   notes: string[]; // conversion warnings shown in gold
   chart: ChartResult;
+  /** A moment (the sky now) rather than a birth: no personal reading. */
+  moment?: boolean;
 }
 
 type Tab = 'reading' | 'planets' | 'aspects' | 'lots' | 'dignities' | 'stars';
@@ -133,7 +135,7 @@ export function ChartScreen({
       />
 
       <View style={styles.tabs}>
-        {TABS.map(t => (
+        {TABS.filter(t => !(info.moment && t.key === 'reading')).map(t => (
           <Pressable
             key={t.key}
             onPress={() => setTab(t.key)}

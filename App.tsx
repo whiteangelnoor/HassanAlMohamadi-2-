@@ -191,6 +191,7 @@ function skyNow(at: Date, s: Settings): ChartInfo {
   });
   return {
     title: 'السماء الآن',
+    moment: true,
     lines: [
       'فوق بغداد',
       `بالتوقيت العالمي: ${formatDateTime(utc)}`,
