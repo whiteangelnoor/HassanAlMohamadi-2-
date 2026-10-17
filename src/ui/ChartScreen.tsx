@@ -33,6 +33,7 @@ import {
   SIGNS,
 } from './theme';
 import { Button, Header } from './widgets';
+import { ASC_IN, MOON_IN, SUN_IN } from '../astro/readings';
 import { ChartWheel } from './ChartWheel';
 import { HOUSE_SYSTEMS, houseSystemName } from './houseSystems';
 
@@ -43,8 +44,9 @@ export interface ChartInfo {
   chart: ChartResult;
 }
 
-type Tab = 'planets' | 'aspects' | 'lots' | 'dignities' | 'stars';
+type Tab = 'reading' | 'planets' | 'aspects' | 'lots' | 'dignities' | 'stars';
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'reading', label: 'التفسير' },
   { key: 'planets', label: 'الكواكب' },
   { key: 'aspects', label: 'الجوانب' },
   { key: 'lots', label: 'السهام' },
@@ -153,6 +155,7 @@ export function ChartScreen({
       {tab === 'lots' ? <Lots chart={chart} /> : null}
       {tab === 'dignities' ? <Dignities chart={chart} /> : null}
       {tab === 'stars' ? <Stars chart={chart} /> : null}
+      {tab === 'reading' ? <Reading chart={chart} /> : null}
 
       <Button label="رجوع" kind="secondary" onPress={onBack} />
     </ScrollView>
@@ -215,6 +218,52 @@ function BigThree({ chart }: { chart: ChartResult }) {
         </View>
       ))}
     </View>
+  );
+}
+
+function Reading({ chart }: { chart: ChartResult }) {
+  const sign = (lon: number) => Math.floor((((lon % 360) + 360) % 360) / 30);
+  const sun = chart.bodies.find(b => b.key === 'sun');
+  const moon = chart.bodies.find(b => b.key === 'moon');
+  const parts: [string, string][] = [
+    ...(sun
+      ? [
+          [`الشمس في ${SIGNS[sign(sun.lon)]}`, SUN_IN[sign(sun.lon)]] as [
+            string,
+            string,
+          ],
+        ]
+      : []),
+    ...(moon
+      ? [
+          [`القمر في ${SIGNS[sign(moon.lon)]}`, MOON_IN[sign(moon.lon)]] as [
+            string,
+            string,
+          ],
+        ]
+      : []),
+    ...(chart.houses
+      ? [
+          [
+            `الطالع في ${SIGNS[sign(chart.houses.asc)]}`,
+            ASC_IN[sign(chart.houses.asc)],
+          ] as [string, string],
+        ]
+      : []),
+  ];
+  return (
+    <>
+      {parts.map(([title, text]) => (
+        <View key={title} style={styles.readingBlock}>
+          <Text style={styles.readingTitle}>{title}</Text>
+          <Text style={styles.readingText}>{text}</Text>
+        </View>
+      ))}
+      <Text style={styles.note}>
+        هذه قراءة لكل موضع على حدة؛ والخريطة تُفهم مجتمعة، فقد يقوّي موضعٌ
+        موضعاً أو يخففه.
+      </Text>
+    </>
   );
 }
 
@@ -458,6 +507,28 @@ function Dignities({ chart }: { chart: ChartResult }) {
 }
 
 const styles = StyleSheet.create({
+  readingBlock: {
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    gap: 6,
+    backgroundColor: colors.navyRaised,
+  },
+  readingTitle: {
+    fontFamily: FONT,
+    color: colors.gold,
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  readingText: {
+    fontFamily: FONT,
+    color: colors.text,
+    fontSize: 15,
+    lineHeight: 26,
+    textAlign: 'right',
+  },
   bigThree: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-around',

@@ -42,14 +42,18 @@ test('every tab renders for a real chart', async () => {
     });
 
   expect(text()).toContain('الطالع');
-  await press(1);
-  expect(text()).toMatch(/مقترب|منفصل/);
   await press(2);
-  expect(text()).toContain('سهم السعادة');
+  expect(text()).toMatch(/مقترب|منفصل/);
   await press(3);
-  expect(text()).toContain('صاحب الحد');
+  expect(text()).toContain('سهم السعادة');
   await press(4);
+  expect(text()).toContain('صاحب الحد');
+  await press(5);
   expect(text()).toContain('النجوم');
+  await press(0);
+  expect(text()).toContain('الشمس في');
+  expect(text()).toContain('القمر في');
+  expect(text()).toContain('الطالع في');
 }, 30000);
 
 test('close planets are spread apart on the wheel', () => {
