@@ -28,7 +28,7 @@ test('every tab renders for a real chart', async () => {
     );
   });
   const text = () => JSON.stringify(tree!.toJSON());
-  expect(text()).toContain('خريطة نهارية');
+  expect(text()).not.toContain('خريطة نهارية');
   expect(text()).toContain('القبيصي');
 
   const tabs = tree!.root.findAll(

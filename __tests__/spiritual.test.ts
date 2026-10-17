@@ -112,9 +112,19 @@ test('horary topics: chapters point at listed matters, no duplicates', () => {
 });
 
 test('readings: twelve texts each, dignities named where they fall', () => {
-  const { SUN_IN, MOON_IN, ASC_IN } = require('../src/astro/readings');
+  const R = require('../src/astro/readings');
+  const { SUN_IN, MOON_IN, ASC_IN } = R;
   const { planetDignity } = require('../src/astro/traditional');
-  for (const list of [SUN_IN, MOON_IN, ASC_IN]) {
+  for (const list of [
+    SUN_IN,
+    MOON_IN,
+    ASC_IN,
+    R.MERCURY_IN,
+    R.VENUS_IN,
+    R.MARS_IN,
+    R.JUPITER_IN,
+    R.SATURN_IN,
+  ]) {
     expect(list).toHaveLength(12);
     expect(new Set(list).size).toBe(12);
   }
@@ -127,6 +137,11 @@ test('readings: twelve texts each, dignities named where they fall', () => {
   for (const [planet, list] of [
     ['sun', SUN_IN],
     ['moon', MOON_IN],
+    ['mercury', R.MERCURY_IN],
+    ['venus', R.VENUS_IN],
+    ['mars', R.MARS_IN],
+    ['jupiter', R.JUPITER_IN],
+    ['saturn', R.SATURN_IN],
   ] as [string, string[]][]) {
     for (let s = 0; s < 12; s++) {
       const d = planetDignity(planet, s * 30 + 15, true).dignities;

@@ -17,7 +17,6 @@ import {
   chartDignities,
   computeLots,
   findAspects,
-  isDayChart,
   rulersAt,
 } from '../astro/traditional';
 import { starContacts } from '../astro/synastry';
@@ -33,7 +32,16 @@ import {
   SIGNS,
 } from './theme';
 import { Button, Header } from './widgets';
-import { ASC_IN, MOON_IN, SUN_IN } from '../astro/readings';
+import {
+  ASC_IN,
+  JUPITER_IN,
+  MARS_IN,
+  MERCURY_IN,
+  MOON_IN,
+  SATURN_IN,
+  SUN_IN,
+  VENUS_IN,
+} from '../astro/readings';
 import { ChartWheel } from './ChartWheel';
 import { HOUSE_SYSTEMS, houseSystemName } from './houseSystems';
 
@@ -73,7 +81,8 @@ export function ChartScreen({
   const [tab, setTab] = useState<Tab>('planets');
   const [picking, setPicking] = useState(false);
   const { chart } = info;
-  const day = chart.houses ? isDayChart(chart) : null;
+  const top = (actions ?? []).filter(a => a.label !== 'PDF');
+  const bottom = (actions ?? []).filter(a => a.label === 'PDF');
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -83,20 +92,15 @@ export function ChartScreen({
           {l}
         </Text>
       ))}
-      {day !== null ? (
-        <Text style={styles.subtitle}>
-          {day ? 'خريطة نهارية' : 'خريطة ليلية'}
-        </Text>
-      ) : null}
       {info.notes.map(n => (
         <Text key={n} style={styles.note}>
           {n}
         </Text>
       ))}
 
-      {actions && actions.length ? (
+      {top.length ? (
         <View style={styles.actions}>
-          {actions.map(a => (
+          {top.map(a => (
             <Pressable
               key={a.label}
               onPress={a.onPress}
@@ -158,6 +162,15 @@ export function ChartScreen({
       {tab === 'dignities' ? <Dignities chart={chart} /> : null}
       {tab === 'stars' ? <Stars chart={chart} /> : null}
       {tab === 'reading' ? <Reading chart={chart} /> : null}
+
+      {bottom.map(a => (
+        <Button
+          key={a.label}
+          label="تصدير PDF"
+          kind="secondary"
+          onPress={a.onPress}
+        />
+      ))}
 
       <Button label="رجوع" kind="secondary" onPress={onBack} />
     </ScrollView>
@@ -223,36 +236,29 @@ function BigThree({ chart }: { chart: ChartResult }) {
   );
 }
 
+const READING_BODIES: [string, string, string[]][] = [
+  ['sun', 'الشمس', SUN_IN],
+  ['moon', 'القمر', MOON_IN],
+  ['mercury', 'عطارد', MERCURY_IN],
+  ['venus', 'الزهرة', VENUS_IN],
+  ['mars', 'المريخ', MARS_IN],
+  ['jupiter', 'المشتري', JUPITER_IN],
+  ['saturn', 'زحل', SATURN_IN],
+];
+
 function Reading({ chart }: { chart: ChartResult }) {
   const sign = (lon: number) => Math.floor((((lon % 360) + 360) % 360) / 30);
-  const sun = chart.bodies.find(b => b.key === 'sun');
-  const moon = chart.bodies.find(b => b.key === 'moon');
-  const parts: [string, string][] = [
-    ...(sun
-      ? [
-          [`الشمس في ${SIGNS[sign(sun.lon)]}`, SUN_IN[sign(sun.lon)]] as [
-            string,
-            string,
-          ],
-        ]
-      : []),
-    ...(moon
-      ? [
-          [`القمر في ${SIGNS[sign(moon.lon)]}`, MOON_IN[sign(moon.lon)]] as [
-            string,
-            string,
-          ],
-        ]
-      : []),
-    ...(chart.houses
-      ? [
-          [
-            `الطالع في ${SIGNS[sign(chart.houses.asc)]}`,
-            ASC_IN[sign(chart.houses.asc)],
-          ] as [string, string],
-        ]
-      : []),
-  ];
+  const parts: [string, string][] = [];
+  if (chart.houses) {
+    const s = sign(chart.houses.asc);
+    parts.push([`الطالع في ${SIGNS[s]}`, ASC_IN[s]]);
+  }
+  for (const [key, name, texts] of READING_BODIES) {
+    const b = chart.bodies.find(x => x.key === key);
+    if (b) {
+      parts.push([`${name} في ${SIGNS[sign(b.lon)]}`, texts[sign(b.lon)]]);
+    }
+  }
   return (
     <>
       {parts.map(([title, text]) => (
