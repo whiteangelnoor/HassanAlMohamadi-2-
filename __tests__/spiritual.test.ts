@@ -248,7 +248,49 @@ test('geomancy: sixteen figures, the shield follows its rules', () => {
   expect(s.daughters[0].join('')).toBe('1221');
   expect(add([1, 1, 1, 1], [2, 2, 2, 2]).join('')).toBe('1111');
   expect(add([1, 2, 1, 2], [1, 2, 2, 1]).join('')).toBe('2211');
-  expect(s.houses).toHaveLength(12);
+  expect(s.houses).toHaveLength(16);
+  // The worked example of «الفلك المشحون» (ص٢٩): mothers الأحيان، نقي الخد،
+  // النصرة الخارجة، العتبة الخارجة give 13 الأنكيس، 14 الجودلة، 15 النصرة
+  // الخارجة (even) and 16 الحمرة.
+  const odd = (f: string) => [...f].map(c => (c === '1' ? 1 : 2));
+  const book = castShield([
+    ...odd('1222'),
+    ...odd('1211'),
+    ...odd('1122'),
+    ...odd('1112'),
+  ]);
+  expect(book.daughters.map((f: number[]) => f.join(''))).toEqual([
+    '1111',
+    '2211',
+    '2121',
+    '2122',
+  ]);
+  expect(book.nieces.map((f: number[]) => f.join(''))).toEqual([
+    '2211',
+    '2212',
+    '1122',
+    '2221',
+  ]);
+  expect(book.houses.slice(12).map((f: number[]) => f.join(''))).toEqual([
+    '2221',
+    '1121',
+    '1122',
+    '2122',
+  ]);
+  const { figureKind, judgeShield } = require('../src/spiritual/raml');
+  expect(figureKind([1, 1, 2, 1])).toBe('منقلب');
+  expect(figureKind([2, 1, 1, 2])).toBe('ثابت');
+  expect(figureKind([2, 2, 1, 1])).toBe('داخل');
+  expect(figureKind([1, 2, 2, 2])).toBe('خارج');
+  // Mothers all fixed: the cast is left for another time.
+  const fixed = castShield([
+    ...odd('2222'),
+    ...odd('2112'),
+    ...odd('2122'),
+    ...odd('2212'),
+  ]);
+  expect(judgeShield(fixed, 7).headline).toContain('اترك');
+  expect(judgeShield(book, 7).lines.join(' ')).toContain('عاقبة الحاجة');
   // The judge always has an even number of points, over many casts.
   for (let i = 0; i < 200; i++) {
     const r = castShield(randomCounts());
@@ -258,24 +300,25 @@ test('geomancy: sixteen figures, the shield follows its rules', () => {
 });
 
 test('قرعة الضمير: sixteen sections, four handfuls make one figure', () => {
-  const { QURA, castQura, quraEntry, randomHandfuls } = require(
-    '../src/spiritual/qura',
-  );
+  const {
+    QURA,
+    castQura,
+    quraEntry,
+    randomHandfuls,
+  } = require('../src/spiritual/qura');
   const { FIGURES } = require('../src/spiritual/raml');
   expect(Object.keys(QURA).sort()).toEqual(Object.keys(FIGURES).sort());
-  // The manuscript's names match the shield's, but for الجودلة (الكوسج).
+  // The manuscript's names match the book's.
   for (const k of Object.keys(QURA)) {
-    if (k !== '1121') {
-      expect(QURA[k].name).toBe(FIGURES[k].name);
-    }
+    expect(QURA[k].name).toBe(FIGURES[k].name);
   }
   expect(QURA['1121'].name).toBe('الجودلة');
   // Odd handfuls leave one, even leave two.
   expect(castQura([9, 10, 13, 7]).join('')).toBe('1211');
   expect(quraEntry(castQura([9, 10, 13, 7])).name).toBe('نقي الخد');
   for (let i = 0; i < 100; i++) {
-    expect(quraEntry(castQura(randomHandfuls())).judgment.length).toBeGreaterThan(
-      20,
-    );
+    expect(
+      quraEntry(castQura(randomHandfuls())).judgment.length,
+    ).toBeGreaterThan(20);
   }
 });

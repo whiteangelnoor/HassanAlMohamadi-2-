@@ -5,13 +5,15 @@
 // AGPL-3.0-or-later.
 
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
   castShield,
   Figure,
   figureInfo,
+  figureKind,
   judgeShield,
+  RAML_HOUSES,
   randomCounts,
   Shield,
 } from '../spiritual/raml';
@@ -113,10 +115,7 @@ function QuraView() {
         <Hint>أضمر حاجتك في قلبك، ثم اضغط «اسحب القرعة».</Hint>
       )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button
-        label={figure ? 'اسحب من جديد' : 'اسحب القرعة'}
-        onPress={draw}
-      />
+      <Button label={figure ? 'اسحب من جديد' : 'اسحب القرعة'} onPress={draw} />
 
       {figure && e ? (
         <>
@@ -141,11 +140,7 @@ function QuraView() {
           </View>
           <Card>
             <Row name="الشكل" value={e.name} />
-            <Row
-              last
-              name="كوكبه"
-              value={e.planet ?? 'لم تذكره المخطوطة'}
-            />
+            <Row last name="كوكبه" value={e.planet ?? 'لم تذكره المخطوطة'} />
           </Card>
         </>
       ) : null}
@@ -208,6 +203,7 @@ function ShieldView() {
   const [counts, setCounts] = useState<string[]>(() => Array(16).fill(''));
   const [shield, setShield] = useState<Shield | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
 
   const house = matter && matter !== 'intention' ? matter.house : 1;
 
@@ -317,25 +313,41 @@ function ShieldView() {
               <FigureView key={i} f={f} />
             ))}
           </View>
-          <Section title="الشاهدان والحاكم" />
+          <Section title="السائل والمسؤول" />
           <View style={styles.figRow}>
-            <FigureView f={shield.rightWitness} label="الأيمن" />
-            <FigureView f={shield.judge} label="الحاكم" />
-            <FigureView f={shield.leftWitness} label="الأيسر" />
+            <FigureView f={shield.rightWitness} label="السائل" />
+            <FigureView f={shield.leftWitness} label="المسؤول" />
+          </View>
+          <Section title="الميزان والعاقبة" />
+          <View style={styles.figRow}>
+            <FigureView f={shield.judge} label="الميزان" />
+            <FigureView f={shield.outcome} label="العاقبة" />
           </View>
 
-          <Section title="البيوت" />
+          <Section title="البيوت الستة عشر" />
+          <Hint>اضغط على بيت لترى صفات شكله.</Hint>
           <Card>
             {shield.houses.map((f, i) => {
               const info = figureInfo(f);
               return (
-                <Row
+                <Pressable
                   key={i}
-                  last={i === 11}
-                  highlight={i + 1 === house && house !== 1}
-                  name={`البيت ${i + 1}`}
-                  value={`${info.name} · ${info.nature}`}
-                />
+                  onPress={() => setOpen(o => (o === i ? null : i))}
+                >
+                  <Row
+                    last={i === 15}
+                    highlight={i + 1 === house && house !== 1}
+                    name={`${i + 1} · ${RAML_HOUSES[i]}`}
+                    value={`${info.name} · ${info.nature}`}
+                    detail={
+                      open === i
+                        ? `كوكبه ${info.planet} · برجه ${info.sign} · عنصره ${
+                            info.element
+                          } · ${figureKind(f)}`
+                        : undefined
+                    }
+                  />
+                </Pressable>
               );
             })}
           </Card>
@@ -343,10 +355,11 @@ function ShieldView() {
       ) : null}
 
       <Hint>
-        تُعدّ نقاط كل سطر: الفرد نقطة والزوج نقطتان، وكل أربعة أسطر شكل. من
-        الأمهات الأربع تُستخرج البنات والحفيدات، ثم الشاهدان والحاكم، وتوزَّع
-        الأشكال الاثنا عشر الأولى على البيوت. الحكم من الحاكم والشاهدين، ثم من
-        انتقال شكل الطالع إلى بيت المسألة.
+        على طريقة «الفلك المشحون في علم الرمل المصون»: تُعدّ نقاط كل سطر، الفرد
+        نقطة والزوج نقطتان، وكل أربعة أسطر شكل. من الأمهات تُستخرج البنات
+        والحفيدات، ثم السائل والمسؤول والميزان والعاقبة، فتتم البيوت الستة عشر.
+        يُنظر أولاً في صدق الرمل، ثم في عاقبة الحاجة، ثم في شكل بيت المسألة
+        وشرفه وهبوطه. وأصحّ الرمل ما ضُرب في الليل.
       </Hint>
     </>
   );

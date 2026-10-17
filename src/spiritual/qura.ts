@@ -53,7 +53,7 @@ export const QURA: Record<string, QuraEntry> = {
     },
   },
   '1222': {
-    name: 'اللحيان',
+    name: 'الأحيان',
     verse: 'سلام عليكم طبتم فادخلوها خالدين',
     ref: 'الزمر ٧٣',
     planet: 'المشتري، ويومه الخميس',

@@ -165,7 +165,7 @@ run('new screens with the real engine', () => {
     });
     jest.useRealTimers();
     const out = JSON.stringify(tree!.toJSON());
-    expect(out).toContain('الحاكم');
+    expect(out).toContain('الميزان');
     expect(out).toContain('الأمهات');
     expect(out).toMatch(/الاستخارة/);
   });
