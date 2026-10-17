@@ -169,4 +169,33 @@ run('new screens with the real engine', () => {
     expect(out).toContain('الأمهات');
     expect(out).toMatch(/الاستخارة/);
   });
+
+  test('قرعة الضمير: one press draws one figure and its judgment', async () => {
+    jest.useFakeTimers();
+    let tree: ReactTestRenderer.ReactTestRenderer | undefined;
+    await ReactTestRenderer.act(async () => {
+      tree = ReactTestRenderer.create(<RamlScreen onBack={() => {}} />);
+    });
+    const mode = tree!.root.findAll(
+      (n: any) =>
+        Array.isArray(n.props.items) &&
+        n.props.items.some((i: any) => i.label === 'قرعة الضمير'),
+    );
+    await ReactTestRenderer.act(async () => {
+      mode[0].props.items[1].onPress();
+    });
+    const draw = tree!.root.findAll(
+      (n: any) =>
+        n.props.label === 'اسحب القرعة' && typeof n.props.onPress === 'function',
+    );
+    expect(draw.length).toBeGreaterThan(0);
+    await ReactTestRenderer.act(async () => {
+      draw[0].props.onPress();
+    });
+    jest.useRealTimers();
+    const out = JSON.stringify(tree!.toJSON());
+    expect(out).toContain('كوكبه');
+    expect(out).toMatch(/الشكل (سعيد|يأمر|يحذّر)/);
+    expect(out).not.toContain('الأمهات');
+  });
 });

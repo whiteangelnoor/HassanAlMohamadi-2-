@@ -256,3 +256,26 @@ test('geomancy: sixteen figures, the shield follows its rules', () => {
     expect(r.judge.join('')).toBe(add(r.rightWitness, r.leftWitness).join(''));
   }
 });
+
+test('قرعة الضمير: sixteen sections, four handfuls make one figure', () => {
+  const { QURA, castQura, quraEntry, randomHandfuls } = require(
+    '../src/spiritual/qura',
+  );
+  const { FIGURES } = require('../src/spiritual/raml');
+  expect(Object.keys(QURA).sort()).toEqual(Object.keys(FIGURES).sort());
+  // The manuscript's names match the shield's, but for الجودلة (الكوسج).
+  for (const k of Object.keys(QURA)) {
+    if (k !== '1121') {
+      expect(QURA[k].name).toBe(FIGURES[k].name);
+    }
+  }
+  expect(QURA['1121'].name).toBe('الجودلة');
+  // Odd handfuls leave one, even leave two.
+  expect(castQura([9, 10, 13, 7]).join('')).toBe('1211');
+  expect(quraEntry(castQura([9, 10, 13, 7])).name).toBe('نقي الخد');
+  for (let i = 0; i < 100; i++) {
+    expect(quraEntry(castQura(randomHandfuls())).judgment.length).toBeGreaterThan(
+      20,
+    );
+  }
+});
