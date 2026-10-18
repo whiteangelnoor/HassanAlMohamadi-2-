@@ -2,7 +2,8 @@
 // with «باب بيان المفردات» (ص٣٥٤–٣٥٧). Meanings paraphrased; the lines that
 // foretell a death are softened. AGPL-3.0-or-later.
 
-import { BookRule, name, shown, sumOf } from './ramlKit';
+import { RAML_HOUSES } from './raml';
+import { BookRule, h, name, shown, sumOf } from './ramlKit';
 
 /** What the figure of the mind points to, by its rows from the head down. */
 const MUFRADAT: Record<string, string> = {
@@ -58,6 +59,36 @@ export const RULES_6: BookRule[] = [
             mind,
           )}: ${MUFRADAT[mind.join('')]}`,
           `ومن الشكلين معاً خرج «${name(both)}»، وعليه الحكم أعلاه.`,
+        ],
+      };
+    },
+  },
+  {
+    // The singles of the cast up to the fifteenth, cast off twelves: 1–4 a
+    // span, 5–8 a cubit, 9–12 a man's height (ص١٨٧). «مفردات» is read as the
+    // single rows of houses 1–15; the book does not spell it out.
+    id: 'b6-depth',
+    field: 'الكنوز والدفائن',
+    title: 'كم عمق الدفين؟',
+    page: 187,
+    judge(s) {
+      const singles = s.houses
+        .slice(0, 15)
+        .reduce((a, f) => a + f.filter(r => r === 1).length, 0);
+      const rest = singles % 12 || 12;
+      const unit = rest <= 4 ? 'شبر' : rest <= 8 ? 'ذراع' : 'قامة';
+      return {
+        verdict: 'info',
+        headline: `العمق بالـ${unit}.`,
+        lines: [
+          `النقاط المفردة في البيوت من الأول إلى الخامس عشر ${singles}، وبعد إسقاط اثني عشر اثني عشر بقي ${rest}.`,
+          'الباقي من 1 إلى 4 شبر، ومن 5 إلى 8 ذراع، ومن 9 إلى 12 قامة.',
+          `ويقف الباقي على البيت ${rest} (${
+            RAML_HOUSES[rest - 1]
+          }) وفيه «${name(
+            h(s, rest),
+          )}»؛ والكتاب يجعل عدد الأشبار أو الأذرع من عدد هذا الشكل، ولم يبيّن أي عدد يقصد، فلم نذكره.`,
+          'تفسير «مفردات الرمل» بالنقاط المفردة اجتهاد، لأن الكتاب لم يصرّح به.',
         ],
       };
     },

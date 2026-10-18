@@ -354,3 +354,33 @@ test('إخراج الضمير: the asker, the mind and both together', () => {
     expect(a.lines).toHaveLength(3);
   }
 });
+
+test('الكنوز والدفائن: the treasure chapters gathered, and the depth', () => {
+  const { rulesOf, BOOK_FIELDS } = require('../src/spiritual/ramlBook');
+  const { castShield, randomCounts } = require('../src/spiritual/raml');
+  expect(BOOK_FIELDS).toContain('الكنوز والدفائن');
+  const ids = rulesOf('الكنوز والدفائن').map((r: any) => r.id);
+  expect(ids).toEqual(
+    expect.arrayContaining([
+      'b3-buried-exists',
+      'b3-buried-quarter',
+      'b3-buried-kind',
+      'b3-hidden-direction',
+      'b5-hidden',
+      'b6-depth',
+    ]),
+  );
+  // The shared ones stay under theft too.
+  const theft = rulesOf('السرقة والضائع').map((r: any) => r.id);
+  expect(theft).toEqual(expect.arrayContaining(['b5-hidden']));
+  const depth = rulesOf('الكنوز والدفائن').find(
+    (r: any) => r.id === 'b6-depth',
+  );
+  let r = 5;
+  const rand = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 200; i++) {
+    expect(depth.judge(castShield(randomCounts(rand))).headline).toMatch(
+      /شبر|ذراع|قامة/,
+    );
+  }
+});

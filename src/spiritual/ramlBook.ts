@@ -20,9 +20,12 @@ export const BOOK_RULES: BookRule[] = [
 ];
 
 /** The fields that have at least one question, in the fixed order. */
+const inField = (r: BookRule, f: RamlField) =>
+  r.field === f || (r.also ?? []).includes(f);
+
 export const BOOK_FIELDS: RamlField[] = RAML_FIELDS.filter(f =>
-  BOOK_RULES.some(r => r.field === f),
+  BOOK_RULES.some(r => inField(r, f)),
 );
 
 export const rulesOf = (field: RamlField) =>
-  BOOK_RULES.filter(r => r.field === field);
+  BOOK_RULES.filter(r => inField(r, field));

@@ -569,6 +569,7 @@ export const RULES_5: BookRule[] = [
   {
     id: 'b5-hidden',
     field: 'السرقة والضائع',
+    also: ['الكنوز والدفائن'],
     title: 'هل المخبوء أو المسروق في المكان، وفي أي جهة؟',
     page: 307,
     judge: hidden,

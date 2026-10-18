@@ -184,7 +184,7 @@ export const RULES_3: BookRule[] = [
   // ص١٨٥: three ways to know whether a place holds something buried.
   {
     id: 'b3-buried-exists',
-    field: 'السرقة والضائع',
+    field: 'الكنوز والدفائن',
     title: 'هل في المكان دفين أو خبيئة؟',
     page: 185,
     judge(s) {
@@ -250,7 +250,7 @@ export const RULES_3: BookRule[] = [
   // ص١٨٦–١٨٧: the quarter of the place that holds the hidden thing.
   {
     id: 'b3-buried-quarter',
-    field: 'السرقة والضائع',
+    field: 'الكنوز والدفائن',
     title: 'في أي ربع من المكان الخبيئة؟',
     page: 186,
     judge(s) {
@@ -299,7 +299,7 @@ export const RULES_3: BookRule[] = [
   // ص١٨٩–١٩٠: the kind, worth and age of the hidden thing.
   {
     id: 'b3-buried-kind',
-    field: 'السرقة والضائع',
+    field: 'الكنوز والدفائن',
     title: 'ما جنس الخبيئة وقيمتها وعمرها؟',
     page: 189,
     judge(s) {
@@ -345,6 +345,7 @@ export const RULES_3: BookRule[] = [
   {
     id: 'b3-hidden-direction',
     field: 'السرقة والضائع',
+    also: ['الكنوز والدفائن'],
     title: 'في أي جهة المسروق أو المخبوء؟',
     page: 190,
     judge(s) {

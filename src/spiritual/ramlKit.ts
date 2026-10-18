@@ -3,14 +3,7 @@
 // kind, points, number and the flipped rows (النظر والنطق والاتصال
 // والانفصال). AGPL-3.0-or-later.
 
-import {
-  add,
-  Figure,
-  figureInfo,
-  figureKind,
-  Nature,
-  Shield,
-} from './raml';
+import { add, Figure, figureInfo, figureKind, Nature, Shield } from './raml';
 
 export type Verdict = 'yes' | 'no' | 'doubt' | 'info';
 
@@ -30,6 +23,7 @@ export type RamlField =
   | 'المرض'
   | 'السجن'
   | 'السرقة والضائع'
+  | 'الكنوز والدفائن'
   | 'الغائب والسفر'
   | 'العمل والولاية'
   | 'الأعداء والخصومة'
@@ -46,6 +40,7 @@ export const RAML_FIELDS: RamlField[] = [
   'المرض',
   'السجن',
   'السرقة والضائع',
+  'الكنوز والدفائن',
   'الغائب والسفر',
   'العمل والولاية',
   'الأعداء والخصومة',
@@ -58,6 +53,8 @@ export interface BookRule {
   /** Stable id, e.g. 'pregnant'. */
   id: string;
   field: RamlField;
+  /** Other fields where the question is also listed. */
+  also?: RamlField[];
   /** The question as the user sees it, short and plain. */
   title: string;
   /** Printed page in the book. */
